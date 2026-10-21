@@ -6,7 +6,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { LttError, isRelevant, USER } from './store.js';
 const MAX_BODY = 1024 * 1024;
 const BAD_JSON = Symbol('bad json');
-const DASHBOARD = readFileSync(new URL('./dashboard/index.html', import.meta.url));
+const PUBLIC_DIR = fileURLToPath(new URL('./public', import.meta.url));
 const DASHBOARD_HEADERS = {
   'content-type': 'text/html; charset=utf-8',
   'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:",
@@ -14,15 +14,14 @@ const DASHBOARD_HEADERS = {
   'x-content-type-options': 'nosniff',
 };
 const NOT_SIGNED_IN_HTML = '<!doctype html><html><body><p>Not signed in. Run `ltt dashboard` and open the link it prints.</p></body></html>\n';
-const DASHBOARD_DIR = fileURLToPath(new URL('./dashboard', import.meta.url));
-const DASHBOARD_FILE_RE = /^[a-z0-9-]+\.(js|css)$/;
+const STATIC_FILE_RE = /^(assets\/[a-zA-Z0-9_-]+|[a-z0-9-]+)\.(js|css)$/;
 
-function serveStaticFile(res, pathname) {
+function serveStaticFile(res, pathname, dir = PUBLIC_DIR) {
   const filename = pathname.slice('/dashboard/'.length);
-  if (!DASHBOARD_FILE_RE.test(filename)) {
-    throw new LttError('invalid', 'file name must match /^[a-z0-9-]+\\.(js|css)$/');
+  if (!STATIC_FILE_RE.test(filename)) {
+    throw new LttError('invalid', 'file name must match /^(assets\\/[a-zA-Z0-9_-]+|[a-z0-9-]+)\\.(js|css)$/');
   }
-  const filePath = join(DASHBOARD_DIR, filename);
+  const filePath = join(dir, filename);
   if (!existsSync(filePath)) {
     throw new LttError('not_found', 'file not found');
   }
@@ -68,6 +67,7 @@ export function createServer({
   settings,
   usage,
   applySettings = () => {},
+  publicDir = PUBLIC_DIR,
 }) {
   const waiters = new Set();
   store.onEvent(e => {
@@ -344,7 +344,15 @@ export function createServer({
       send(res, 200, await usage.getUsage({ fresh: url.searchParams.get('fresh') === '1' }));
     },
 
-    'GET /'(req, res) { res.writeHead(200, DASHBOARD_HEADERS); res.end(DASHBOARD); },
+    'GET /'(req, res) {
+      const indexHtmlPath = join(publicDir, 'index.html');
+      if (!existsSync(indexHtmlPath)) {
+        res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
+        return res.end('dashboard not built: run npm run build');
+      }
+      res.writeHead(200, DASHBOARD_HEADERS);
+      res.end(readFileSync(indexHtmlPath));
+    },
 
     'POST /api/shutdown'(req, res) { send(res, 200, { ok: true }); onShutdown(); },
   };
@@ -359,12 +367,12 @@ export function createServer({
 
       // Reject path traversal attempting to escape /dashboard/
       if (req.url.startsWith('/dashboard/') && !url.pathname.startsWith('/dashboard/')) {
-        throw new LttError('invalid', 'file name must match /^[a-z0-9-]+\\.(js|css)$/');
+        throw new LttError('invalid', 'file name must match /^(assets\\/[a-zA-Z0-9_-]+|[a-z0-9-]+)\\.(js|css)$/');
       }
 
       // Static dashboard assets require no token (A5, contract v3)
       if (req.method === 'GET' && url.pathname.startsWith('/dashboard/')) {
-        return serveStaticFile(res, url.pathname);
+        return serveStaticFile(res, url.pathname, publicDir);
       }
 
       // One-time dashboard login via link

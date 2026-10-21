@@ -222,7 +222,7 @@ test('CLI: no workspace exits 1', (t) => {
 
 test('dashboard: answer box posts to /api/respond without token in URL or header', () => {
   const files = ['index.html', 'app.js', 'api.js', 'view-inbox.js'].map(f =>
-    readFileSync(new URL(`../daemon/dashboard/${f}`, import.meta.url), 'utf8')
+    readFileSync(new URL(`../dashboard/${f}`, import.meta.url), 'utf8')
   ).join('\n');
   assert.match(files, /\/api\/respond/);
   assert.match(files, /textarea/);

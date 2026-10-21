@@ -4,14 +4,14 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { formatAgo, formatClock, parseErrorCode, filterRequests } from '../daemon/dashboard/dom.js';
-import { summarizeUsage } from '../daemon/dashboard/usage.js';
+import { formatAgo, formatClock, parseErrorCode, filterRequests } from '../dashboard/dom.js';
+import { summarizeUsage } from '../dashboard/usage.js';
 
-const DASHBOARD_DIR = fileURLToPath(new URL('../daemon/dashboard', import.meta.url));
+const DASHBOARD_DIR = fileURLToPath(new URL('../dashboard', import.meta.url));
 
 test('dashboard static scan: no forbidden HTML injection methods', () => {
   const files = readdirSync(DASHBOARD_DIR);
-  assert.ok(files.length > 0, 'daemon/dashboard should contain files');
+  assert.ok(files.length > 0, 'dashboard should contain files');
 
   // Forbidden scan including DOMParser, srcdoc, and setAttribute('style
   const forbidden = /innerHTML|outerHTML|insertAdjacentHTML|document\.write|DOMParser|srcdoc|setAttribute\(['"]style/i;
@@ -37,11 +37,11 @@ test('dashboard static scan: index.html has no inline script or style', () => {
   const scriptTags = html.match(/<script\b[^>]*>/gi) || [];
   assert.ok(scriptTags.length > 0, 'index.html should have a script tag');
   for (const tag of scriptTags) {
-    assert.match(tag, /\bsrc=["']\/dashboard\/app\.js["']/i, 'script tag must load /dashboard/app.js');
+    assert.match(tag, /\bsrc=["']\.\/app\.js["']/i, 'script tag must load ./app.js');
   }
 
   // Must have external css link
-  assert.match(html, /<link\b[^>]*href=["']\/dashboard\/app\.css["']/i, 'index.html must link to /dashboard/app.css');
+  assert.match(html, /<link\b[^>]*href=["']\.\/app\.css["']/i, 'index.html must link to ./app.css');
 });
 
 test('dashboard static scan: flat folder and filename allowlist', () => {
@@ -51,7 +51,7 @@ test('dashboard static scan: flat folder and filename allowlist', () => {
   for (const file of files) {
     const fullPath = join(DASHBOARD_DIR, file);
     const st = statSync(fullPath);
-    assert.ok(!st.isDirectory(), `daemon/dashboard must be flat; found subfolder ${file}`);
+    assert.ok(!st.isDirectory(), `dashboard must be flat; found subfolder ${file}`);
     assert.match(file, allowlist, `File ${file} does not match allowed filename pattern`);
   }
 });

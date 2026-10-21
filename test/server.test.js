@@ -1,11 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { openStore } from '../daemon/store.js';
 import { createServer } from '../daemon/server.js';
 
-async function setup(t, { workers, roster, settings, applySettings, usage } = {}) {
+async function setup(t, { workers, roster, settings, applySettings, usage, publicDir } = {}) {
   const store = openStore(':memory:');
   let shutdown = 0;
   const defaultApplySettings = (s) => {
@@ -17,7 +20,7 @@ async function setup(t, { workers, roster, settings, applySettings, usage } = {}
   };
   const { server, waitForEvent, waiterCount } = createServer({
     store, token: 'tok', port: 0, onShutdown: () => shutdown++,
-    workers, roster, settings, usage,
+    workers, roster, settings, usage, publicDir,
     applySettings: applySettings ?? defaultApplySettings,
     mcpFactory: () => async (m) => (m.id === undefined ? null : { jsonrpc: '2.0', id: m.id, result: { echo: m.method } }),
   });
@@ -176,19 +179,26 @@ test('dashboard served and never uses innerHTML', async (t) => {
   assert.equal(r.headers.get('content-security-policy'), "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:");
   assert.equal(r.headers.get('referrer-policy'), 'no-referrer');
   assert.equal(r.headers.get('x-content-type-options'), 'nosniff');
-  const html = readFileSync(new URL('../daemon/dashboard/index.html', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../daemon/public/index.html', import.meta.url), 'utf8');
   assert.doesNotMatch(html, /innerHTML|outerHTML|insertAdjacentHTML|document\.write/);
-  assert.match(html, /<script type="module" src="\/dashboard\/app\.js"><\/script>/);
+  assert.match(html, /<script type="module" crossorigin src="\/dashboard\/assets\/index-[a-zA-Z0-9_-]+\.js"><\/script>/);
 });
 
 test('static assets /dashboard/:file served without auth', async (t) => {
   const { req, rawReq } = await setup(t);
-  const js = await req('/dashboard/app.js', { token: null });
+  const publicDir = fileURLToPath(new URL('../daemon/public', import.meta.url));
+  const assets = readdirSync(join(publicDir, 'assets'));
+  const jsFile = assets.find(f => f.endsWith('.js'));
+  const cssFile = assets.find(f => f.endsWith('.css'));
+  assert.ok(jsFile, 'built js asset exists');
+  assert.ok(cssFile, 'built css asset exists');
+
+  const js = await req(`/dashboard/assets/${jsFile}`, { token: null });
   assert.equal(js.status, 200);
   assert.equal(js.headers.get('content-type'), 'text/javascript; charset=utf-8');
   assert.equal(js.headers.get('x-content-type-options'), 'nosniff');
 
-  const css = await req('/dashboard/app.css', { token: null });
+  const css = await req(`/dashboard/assets/${cssFile}`, { token: null });
   assert.equal(css.status, 200);
   assert.equal(css.headers.get('content-type'), 'text/css; charset=utf-8');
   assert.equal(css.headers.get('x-content-type-options'), 'nosniff');
@@ -225,6 +235,16 @@ test('static assets /dashboard/:file served without auth', async (t) => {
     assert.equal(text.includes('createServer'), false, `vector ${v} must not leak server.js`);
     assert.equal(text.includes('let-them-talk'), false, `vector ${v} must not leak package.json`);
   }
+});
+
+test('missing dashboard index.html returns 500', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'ltt-missing-dash-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const { req } = await setup(t, { publicDir: dir });
+  const res = await req('/', { headers: { cookie: 'ltt_token=tok' }, token: null });
+  assert.equal(res.status, 500);
+  assert.equal(res.headers.get('content-type'), 'text/plain; charset=utf-8');
+  assert.equal(await res.text(), 'dashboard not built: run npm run build');
 });
 
 test('board routes: GET /api/entry and POST /api/entry/delete', async (t) => {
