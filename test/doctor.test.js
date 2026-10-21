@@ -136,3 +136,29 @@ test('doctor detects token mismatch between daemon and agy/codex', async (t) => 
   assert.match(codexCheck.detail, /stale MCP token/);
   assert.equal(codexCheck.fix, 'cotalk setup');
 });
+
+test('doctor suggests npm install -g cotalk when not in a dev git checkout', (t) => {
+  const dir = tmp(t);
+  const home = tmp(t);
+  const nonGitRepo = tmp(t); // directory without .git
+
+  const env = {
+    ...process.env,
+    COTALK_HOME: home,
+    COTALK_PORT: '1',
+    COTALK_REPO_ROOT: nonGitRepo,
+    COTALK_BIN_PATH: join(dir, 'other-cotalk.js'),
+    COTALK_CLAUDE_BIN: join(dir, 'no-claude'),
+    COTALK_AGY_BIN: join(dir, 'no-agy'),
+    COTALK_CODEX_BIN: join(dir, 'no-codex'),
+  };
+
+  const r = spawnSync(process.execPath, [CLI, 'doctor', '--json'], { cwd: dir, encoding: 'utf8', env });
+  assert.equal(r.status, 1);
+  const list = JSON.parse(r.stdout);
+  const pathCheck = list.find(x => x.check === 'cotalk-path');
+  assert.equal(pathCheck.ok, false);
+  assert.equal(pathCheck.level, '✖');
+  assert.equal(pathCheck.fix, 'npm install -g cotalk');
+});
+

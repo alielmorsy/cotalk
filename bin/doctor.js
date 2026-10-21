@@ -4,36 +4,9 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import { base, isUp, readToken, api, findConfig, home } from '../lib/client.js';
+import { probeTool, runTool } from './setup.js';
 
-const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url)).replaceAll('\\', '/').replace(/\/+$/, '');
-
-function probeTool(tool) {
-  const envKey = `COTALK_${tool.toUpperCase()}_BIN`;
-  const bin = process.env[envKey] || tool;
-  try {
-    if (bin.endsWith('.js')) {
-      const r = spawnSync(process.execPath, [bin, '--version'], { encoding: 'utf8' });
-      return { found: !r.error && r.status === 0, bin };
-    }
-    const r = process.platform === 'win32'
-      ? spawnSync(`"${bin}" --version`, { shell: true, encoding: 'utf8' })
-      : spawnSync(bin, ['--version'], { encoding: 'utf8' });
-    return { found: !r.error && r.status === 0, bin };
-  } catch {
-    return { found: false, bin };
-  }
-}
-
-function runTool(bin, args) {
-  if (bin.endsWith('.js')) {
-    return spawnSync(process.execPath, [bin, ...args], { encoding: 'utf8' });
-  }
-  if (process.platform === 'win32') {
-    const cmdStr = `"${bin}" ${args.map(a => /\s/.test(a) ? `"${a}"` : a).join(' ')}`;
-    return spawnSync(cmdStr, { shell: true, encoding: 'utf8' });
-  }
-  return spawnSync(bin, args, { encoding: 'utf8' });
-}
+const REPO_ROOT = (process.env.COTALK_REPO_ROOT || fileURLToPath(new URL('..', import.meta.url))).replaceAll('\\', '/').replace(/\/+$/, '');
 
 function findCotalkOnPath() {
   if (process.env.COTALK_BIN_PATH) return process.env.COTALK_BIN_PATH;
@@ -87,6 +60,8 @@ export async function main(cmd, rawArgs) {
   });
 
   // 2. cotalk on PATH resolves to this repo
+  const isDev = existsSync(join(REPO_ROOT, '.git'));
+  const fixHint = isDev ? 'npm link' : 'npm install -g cotalk';
   const cotalkPath = findCotalkOnPath();
   if (!cotalkPath) {
     results.push({
@@ -94,7 +69,7 @@ export async function main(cmd, rawArgs) {
       ok: false,
       level: '✖',
       detail: 'cotalk not found on PATH',
-      fix: 'npm link',
+      fix: fixHint,
     });
   } else if (checkCotalkResolvesToRepo(cotalkPath, REPO_ROOT)) {
     results.push({
@@ -109,7 +84,7 @@ export async function main(cmd, rawArgs) {
       ok: false,
       level: '✖',
       detail: `cotalk on PATH (${cotalkPath}) does not resolve to ${REPO_ROOT}`,
-      fix: 'npm link',
+      fix: fixHint,
     });
   }
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -9,6 +9,7 @@ import { startDaemon } from './helpers.js';
 
 const CLI = fileURLToPath(new URL('../bin/cotalk.js', import.meta.url));
 const FAKE_TOOL = fileURLToPath(new URL('./fixtures/fake-tool.js', import.meta.url));
+const FAKE_NPM = fileURLToPath(new URL('./fixtures/fake-npm.js', import.meta.url));
 
 function tmp(t) {
   const d = mkdtempSync(join(tmpdir(), 'cotalk-setup-test-'));
@@ -116,4 +117,75 @@ test('setup reports failed: <reason> and exits 1 if a tool fails', async (t) => 
   const r = spawnSync(process.execPath, [CLI, 'setup', '--only', 'claude'], { cwd: dir, encoding: 'utf8', env });
   assert.equal(r.status, 1);
   assert.match(r.stdout, /claude: failed: simulated plugin failure/);
+});
+
+test('setup under npx cache: --dry-run prints global install plan and runs nothing', (t) => {
+  const dir = tmp(t);
+  const npxRoot = join(dir, '_npx', '12345', 'node_modules', 'cotalk');
+  mkdirSync(npxRoot, { recursive: true });
+  writeFileSync(join(npxRoot, 'package.json'), JSON.stringify({ version: '0.1.5' }));
+
+  const npmLog = join(dir, 'npm.log');
+  const globalLib = join(dir, 'global-lib');
+
+  const env = {
+    ...process.env,
+    COTALK_REPO_ROOT: npxRoot,
+    COTALK_NPM_BIN: FAKE_NPM,
+    FAKE_NPM_ROOT: globalLib,
+    FAKE_NPM_LOG: npmLog,
+  };
+
+  const r = spawnSync(process.execPath, [CLI, 'setup', '--dry-run'], { cwd: dir, encoding: 'utf8', env });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /running under npx: installing cotalk@0\.1\.5 globally first/);
+  assert.match(r.stdout, /npm install -g cotalk@0\.1\.5/);
+  assert.match(r.stdout, /node .*\/cotalk\/bin\/cotalk\.js setup --dry-run/);
+
+  // verify npm install was NOT executed
+  if (existsSync(npmLog)) {
+    const lines = readFileSync(npmLog, 'utf8').trim().split('\n').map(JSON.parse);
+    assert.ok(!lines.some(args => args.includes('install')), 'install -g must not be called in dry-run');
+  }
+});
+
+test('setup under npx cache: installs globally and re-runs setup from global install', (t) => {
+  const dir = tmp(t);
+  const npxRoot = join(dir, '_npx', '12345', 'node_modules', 'cotalk');
+  mkdirSync(npxRoot, { recursive: true });
+  writeFileSync(join(npxRoot, 'package.json'), JSON.stringify({ version: '0.1.5' }));
+
+  const npmLog = join(dir, 'npm.log');
+  const globalLib = join(dir, 'global-lib');
+  const globalCotalkBin = join(globalLib, 'cotalk', 'bin');
+  mkdirSync(globalCotalkBin, { recursive: true });
+
+  const witness = join(dir, 'witness.json');
+  // Write a fake global cotalk.js that logs its invocation
+  writeFileSync(join(globalCotalkBin, 'cotalk.js'), `
+    import { writeFileSync } from 'node:fs';
+    writeFileSync(${JSON.stringify(witness)}, JSON.stringify(process.argv.slice(2)));
+    process.exit(0);
+  `);
+
+  const env = {
+    ...process.env,
+    COTALK_REPO_ROOT: npxRoot,
+    COTALK_NPM_BIN: FAKE_NPM,
+    FAKE_NPM_ROOT: globalLib,
+    FAKE_NPM_LOG: npmLog,
+  };
+
+  const r = spawnSync(process.execPath, [CLI, 'setup', '--only', 'agy'], { cwd: dir, encoding: 'utf8', env });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /running under npx: installing cotalk@0\.1\.5 globally first/);
+
+  // verify npm install was called with correct package version
+  assert.ok(existsSync(npmLog));
+  const lines = readFileSync(npmLog, 'utf8').trim().split('\n').map(JSON.parse);
+  assert.ok(lines.some(args => args[0] === 'install' && args[1] === '-g' && args[2] === 'cotalk@0.1.5'));
+
+  // verify global cotalk.js was re-run with same args
+  assert.ok(existsSync(witness));
+  assert.deepEqual(JSON.parse(readFileSync(witness, 'utf8')), ['setup', '--only', 'agy']);
 });

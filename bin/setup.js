@@ -1,14 +1,14 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { base, ensureDaemon, readToken } from '../lib/client.js';
 
-const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url)).replaceAll('\\', '/').replace(/\/+$/, '');
+const REPO_ROOT = (process.env.COTALK_REPO_ROOT || fileURLToPath(new URL('..', import.meta.url))).replaceAll('\\', '/').replace(/\/+$/, '');
 const COTALK_CLI = fileURLToPath(new URL('./cotalk.js', import.meta.url));
 
-function getMarketplaceName() {
-  const p = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
+function getMarketplaceName(root = REPO_ROOT) {
+  const p = join(root, '.claude-plugin', 'marketplace.json');
   try {
     return JSON.parse(readFileSync(p, 'utf8')).name || 'cotalk';
   } catch {
@@ -33,7 +33,7 @@ export function probeTool(tool) {
   }
 }
 
-function runTool(bin, args) {
+export function runTool(bin, args) {
   if (bin.endsWith('.js')) {
     return spawnSync(process.execPath, [bin, ...args], { encoding: 'utf8' });
   }
@@ -43,6 +43,8 @@ function runTool(bin, args) {
   }
   return spawnSync(bin, args, { encoding: 'utf8' });
 }
+
+const runNpm = (args) => runTool(process.env.COTALK_NPM_BIN || 'npm', args);
 
 function runCotalk(args, env = process.env) {
   return spawnSync(process.execPath, [COTALK_CLI, ...args], { encoding: 'utf8', env });
@@ -68,6 +70,52 @@ export async function main(cmd, rawArgs) {
   const dry = rawArgs.includes('--dry-run');
   const statusline = rawArgs.includes('--statusline');
 
+  // Check if running from an npx cache (contains `/_npx/`, case-insensitive)
+  const isNpx = /\/_npx\//i.test(REPO_ROOT); // REPO_ROOT already uses forward slashes
+  if (isNpx) {
+    const pkgPath = join(REPO_ROOT, 'package.json');
+    let version = 'latest';
+    try {
+      version = JSON.parse(readFileSync(pkgPath, 'utf8')).version || 'latest';
+    } catch {}
+
+    let globalRoot = '<globalRoot>';
+    try {
+      const rRoot = runNpm(['root', '-g']);
+      if (rRoot.status === 0 && rRoot.stdout.trim()) {
+        globalRoot = join(rRoot.stdout.trim(), 'cotalk').replaceAll('\\', '/');
+      }
+    } catch {}
+
+    if (dry) {
+      console.log(`running under npx: installing cotalk@${version} globally first`);
+      console.log(`  npm install -g cotalk@${version}`);
+      console.log(`  node ${globalRoot}/bin/cotalk.js setup${rawArgs.length ? ' ' + rawArgs.join(' ') : ''}`);
+      return;
+    }
+
+    console.log(`running under npx: installing cotalk@${version} globally first...`);
+    const install = runNpm(['install', '-g', `cotalk@${version}`]);
+    if (install.status !== 0) {
+      console.error(install.stderr || install.stdout || 'npm install -g failed');
+      process.exitCode = install.status ?? 1;
+      return;
+    }
+
+    const rRoot = runNpm(['root', '-g']);
+    if (rRoot.status !== 0 || !rRoot.stdout.trim()) {
+      console.error(rRoot.stderr || rRoot.stdout || 'npm root -g failed');
+      process.exitCode = rRoot.status ?? 1;
+      return;
+    }
+    const realGlobalRoot = join(rRoot.stdout.trim(), 'cotalk').replaceAll('\\', '/');
+    const globalCli = join(realGlobalRoot, 'bin', 'cotalk.js');
+    const { COTALK_REPO_ROOT, ...env } = process.env; // the child must use its own root, or it re-enters this branch
+    const r = spawnSync(process.execPath, [globalCli, 'setup', ...rawArgs], { stdio: 'inherit', env });
+    process.exitCode = r.status ?? 1;
+    return;
+  }
+
   let only = null;
   const onlyIdx = rawArgs.findIndex(a => a === '--only' || a.startsWith('--only='));
   if (onlyIdx >= 0) {
@@ -77,7 +125,7 @@ export async function main(cmd, rawArgs) {
 
   const allTools = ['claude', 'agy', 'codex'];
   const tools = only ? allTools.filter(t => only.includes(t)) : allTools;
-  const marketplaceName = getMarketplaceName();
+  const marketplaceName = getMarketplaceName(REPO_ROOT);
 
   if (dry) {
     for (const tool of tools) {
