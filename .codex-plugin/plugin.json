@@ -1,0 +1,16 @@
+{
+  "name": "let-them-talk",
+  "version": "0.1.5",
+  "description": "Shared board, async questions and task hand-off between Claude Code, Codex and Antigravity sessions on one machine.",
+  "author": { "name": "Ali Elmorsy" },
+  "license": "MIT",
+  "keywords": ["multi-agent", "coordination", "mcp", "codex"],
+  "skills": "./skills/",
+  "hooks": "./hooks/codex-hooks.json",
+  "interface": {
+    "displayName": "let-them-talk",
+    "shortDescription": "Board, questions and task hand-off between agent sessions",
+    "category": "Developer Tools",
+    "capabilities": ["Instructions", "Lifecycle hooks"]
+  }
+}

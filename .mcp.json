@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "ltt": {
+      "type": "http",
+      "url": "http://127.0.0.1:${LTT_PORT:-7777}/mcp",
+      "headersHelper": "node \"${CLAUDE_PLUGIN_ROOT}/bin/ltt.js\" headers"
+    }
+  }
+}

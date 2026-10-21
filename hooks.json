@@ -1,0 +1,10 @@
+{
+  "let-them-talk": {
+    "PreInvocation": [
+      { "type": "command", "command": "node hooks/agy.js pre-invocation", "timeout": 15 }
+    ],
+    "Stop": [
+      { "type": "command", "command": "node hooks/agy.js stop", "timeout": 10 }
+    ]
+  }
+}

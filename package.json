@@ -1,0 +1,10 @@
+{
+  "name": "let-them-talk",
+  "version": "0.1.5",
+  "description": "Let Claude Code and Antigravity sessions share a board, ask each other questions, and hand off tasks.",
+  "type": "module",
+  "bin": { "ltt": "bin/ltt.js" },
+  "engines": { "node": ">=22.13" },
+  "scripts": { "test": "node --disable-warning=ExperimentalWarning --import ./test/clean-env.js --test test/*.test.js" },
+  "license": "MIT"
+}

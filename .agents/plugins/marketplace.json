@@ -1,0 +1,12 @@
+{
+  "name": "let-them-talk-dev",
+  "interface": { "displayName": "let-them-talk" },
+  "plugins": [
+    {
+      "name": "let-them-talk",
+      "source": { "source": "url", "url": "./" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Developer Tools"
+    }
+  ]
+}
