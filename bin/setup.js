@@ -16,6 +16,9 @@ function getMarketplaceName(root = REPO_ROOT) {
   }
 }
 
+// quote only when needed: a quoted .cmd shim ("npm") resolves %~dp0 against the cwd and breaks
+const q = (a) => /\s/.test(a) ? `"${a}"` : a;
+
 export function probeTool(tool) {
   const envKey = `COTALK_${tool.toUpperCase()}_BIN`;
   const bin = process.env[envKey] || tool;
@@ -25,7 +28,7 @@ export function probeTool(tool) {
       return { found: !r.error && r.status === 0, bin };
     }
     const r = process.platform === 'win32'
-      ? spawnSync(`"${bin}" --version`, { shell: true, encoding: 'utf8' })
+      ? spawnSync(`${q(bin)} --version`, { shell: true, encoding: 'utf8' })
       : spawnSync(bin, ['--version'], { encoding: 'utf8' });
     return { found: !r.error && r.status === 0, bin };
   } catch {
@@ -38,8 +41,7 @@ export function runTool(bin, args) {
     return spawnSync(process.execPath, [bin, ...args], { encoding: 'utf8' });
   }
   if (process.platform === 'win32') {
-    const cmdStr = `"${bin}" ${args.map(a => /\s/.test(a) ? `"${a}"` : a).join(' ')}`;
-    return spawnSync(cmdStr, { shell: true, encoding: 'utf8' });
+    return spawnSync([bin, ...args].map(q).join(' '), { shell: true, encoding: 'utf8' });
   }
   return spawnSync(bin, args, { encoding: 'utf8' });
 }
