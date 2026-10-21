@@ -1,8 +1,8 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { base, ensureDaemon, readToken } from '../lib/client.js';
+import { base, ensureDaemon, readToken, home } from '../lib/client.js';
 
 const REPO_ROOT = (process.env.COTALK_REPO_ROOT || fileURLToPath(new URL('..', import.meta.url))).replaceAll('\\', '/').replace(/\/+$/, '');
 // the npm package name; the command is always `cotalk`
@@ -59,6 +59,8 @@ function commandsFor(tool, repoRoot, marketplaceName, statusline) {
   if (tool === 'claude') {
     list.push(`claude plugin marketplace add ${repoRoot}`);
     list.push(`claude plugin install cotalk@${marketplaceName}`);
+    list.push(`claude plugin marketplace update ${marketplaceName}`);
+    list.push(`claude plugin update cotalk@${marketplaceName}`);
     if (statusline) list.push('cotalk statusline claude');
   } else if (tool === 'agy') {
     list.push(`agy plugin install ${repoRoot}`);
@@ -178,6 +180,12 @@ export async function main(cmd, rawArgs) {
         if (r2.status !== 0 && !out2.toLowerCase().includes('already')) {
           throw new Error(out2.trim() || `plugin install exit code ${r2.status}`);
         }
+        // an installed plugin stays on its cached version until the marketplace is re-read and the plugin updated
+        for (const args of [['plugin', 'marketplace', 'update', marketplaceName], ['plugin', 'update', `cotalk@${marketplaceName}`]]) {
+          const r = runTool(probe.bin, args);
+          const out = (r.stdout || '') + (r.stderr || '');
+          if (r.status !== 0 && !/already|latest|up to date/i.test(out)) throw new Error(out.trim() || `${args.join(' ')} exit code ${r.status}`);
+        }
         if (statusline) {
           const r3 = runCotalk(['statusline', 'claude', ...settingsArgs]);
           if (r3.status !== 0) throw new Error(r3.stderr.trim() || r3.stdout.trim() || `statusline failed`);
@@ -204,6 +212,10 @@ export async function main(cmd, rawArgs) {
       failedCount++;
     }
   }
+
+  // an installed status line runs a copy of the script; keep it in step with this version
+  const statuslineCopy = join(home(), 'cotalk-statusline.mjs');
+  if (existsSync(statuslineCopy)) copyFileSync(fileURLToPath(new URL('../statusline/cotalk-statusline.js', import.meta.url)), statuslineCopy);
 
   console.log('Restart your tools to load changes.');
   const token = readToken();

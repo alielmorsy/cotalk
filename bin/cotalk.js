@@ -13,6 +13,7 @@ const USAGE = `usage: cotalk <command>
   usage [--fresh] [--json]
   init --workspace W --agent A [--role R] [--owns "a/**,b/**"] [--force]
   setup [--dry-run] [--only claude,agy,codex] [--statusline]
+  update [--check] | --version
   doctor [--json]
   agy-mcp [--dry-run]
   codex-mcp [--dry-run]
@@ -23,7 +24,7 @@ const USAGE = `usage: cotalk <command>
   inbox | reply <id> <text...> [--reject] | ask <agent> <title...> [--body B] | task <agent> <title...> [--body B]`;
 
 // commands that live in their own module get the raw argv (they parse `--` themselves)
-const MODULES = { run: './run.js', worker: './worker.js', wait: './wait.js', inbox: './human.js', reply: './human.js', ask: './human.js', task: './human.js', 'codex-mcp': './codex.js', setup: './setup.js', doctor: './doctor.js' };
+const MODULES = { run: './run.js', worker: './worker.js', wait: './wait.js', inbox: './human.js', reply: './human.js', ask: './human.js', task: './human.js', 'codex-mcp': './codex.js', setup: './setup.js', doctor: './doctor.js', update: './update.js' };
 
 const [cmd, ...rest] = process.argv.slice(2);
 const pos = [], flags = {};
@@ -42,6 +43,8 @@ const fail = (e) => { if (!(e instanceof Exit)) console.error(`cotalk ${cmd}: ${
 const readJson = (p, fallback) => existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : fallback;
 
 const commands = {
+  '--version'() { console.log(JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version); },
+
   async start() {
     if (!(await ensureDaemon())) die(`cotalk daemon failed to start (see ${join(home(), 'daemon.log')})`);
     console.log(`cotalk daemon running on ${base()}`);
