@@ -12,6 +12,12 @@
   ],
   "author": "Ali Elmorsy",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alielmorsy/cotalk.git"
+  },
+  "homepage": "https://github.com/alielmorsy/cotalk#readme",
+  "bugs": "https://github.com/alielmorsy/cotalk/issues",
   "type": "module",
   "bin": {
     "cotalk": "bin/cotalk.js"

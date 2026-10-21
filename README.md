@@ -396,7 +396,7 @@ npm uninstall -g cotalk                 # or `npm unlink -g cotalk` for a clone
 ## Development
 
 ```sh
-git clone <this repo> cotalk && cd cotalk
+git clone https://github.com/alielmorsy/cotalk.git && cd cotalk
 npm install          # dev tools only (Vite); cotalk has no runtime dependencies
 npm link             # `cotalk` on PATH runs this clone
 npm test
