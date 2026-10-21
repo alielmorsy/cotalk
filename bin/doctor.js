@@ -8,7 +8,7 @@ import { base, isUp, readToken, api, findConfig, home } from '../lib/client.js';
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url)).replaceAll('\\', '/').replace(/\/+$/, '');
 
 function probeTool(tool) {
-  const envKey = `LTT_${tool.toUpperCase()}_BIN`;
+  const envKey = `COTALK_${tool.toUpperCase()}_BIN`;
   const bin = process.env[envKey] || tool;
   try {
     if (bin.endsWith('.js')) {
@@ -35,10 +35,10 @@ function runTool(bin, args) {
   return spawnSync(bin, args, { encoding: 'utf8' });
 }
 
-function findLttOnPath() {
-  if (process.env.LTT_BIN_PATH) return process.env.LTT_BIN_PATH;
+function findCotalkOnPath() {
+  if (process.env.COTALK_BIN_PATH) return process.env.COTALK_BIN_PATH;
   try {
-    const cmd = process.platform === 'win32' ? 'where.exe ltt' : 'which ltt';
+    const cmd = process.platform === 'win32' ? 'where.exe cotalk' : 'which cotalk';
     const r = spawnSync(cmd, { encoding: 'utf8', shell: true });
     if (!r.error && r.status === 0) {
       const lines = r.stdout.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
@@ -48,7 +48,7 @@ function findLttOnPath() {
   return null;
 }
 
-function checkLttResolvesToRepo(foundPath, repoRoot) {
+function checkCotalkResolvesToRepo(foundPath, repoRoot) {
   if (!foundPath) return false;
   const nRepo = resolve(repoRoot).toLowerCase();
   const nFound = resolve(foundPath).toLowerCase();
@@ -58,7 +58,7 @@ function checkLttResolvesToRepo(foundPath, repoRoot) {
     if (resolve(real).toLowerCase().startsWith(nRepo)) return true;
   } catch {}
   try {
-    const nm = join(dirname(foundPath), 'node_modules', 'let-them-talk');
+    const nm = join(dirname(foundPath), 'node_modules', 'cotalk');
     if (existsSync(nm)) {
       const realNm = realpathSync(nm);
       if (resolve(realNm).toLowerCase().startsWith(nRepo)) return true;
@@ -86,29 +86,29 @@ export async function main(cmd, rawArgs) {
     fix: nodeOk ? undefined : 'Install Node >= 22.13',
   });
 
-  // 2. ltt on PATH resolves to this repo
-  const lttPath = findLttOnPath();
-  if (!lttPath) {
+  // 2. cotalk on PATH resolves to this repo
+  const cotalkPath = findCotalkOnPath();
+  if (!cotalkPath) {
     results.push({
-      check: 'ltt-path',
+      check: 'cotalk-path',
       ok: false,
       level: '✖',
-      detail: 'ltt not found on PATH',
+      detail: 'cotalk not found on PATH',
       fix: 'npm link',
     });
-  } else if (checkLttResolvesToRepo(lttPath, REPO_ROOT)) {
+  } else if (checkCotalkResolvesToRepo(cotalkPath, REPO_ROOT)) {
     results.push({
-      check: 'ltt-path',
+      check: 'cotalk-path',
       ok: true,
       level: '✔',
-      detail: `ltt on PATH resolves to ${REPO_ROOT}`,
+      detail: `cotalk on PATH resolves to ${REPO_ROOT}`,
     });
   } else {
     results.push({
-      check: 'ltt-path',
+      check: 'cotalk-path',
       ok: false,
       level: '✖',
-      detail: `ltt on PATH (${lttPath}) does not resolve to ${REPO_ROOT}`,
+      detail: `cotalk on PATH (${cotalkPath}) does not resolve to ${REPO_ROOT}`,
       fix: 'npm link',
     });
   }
@@ -122,7 +122,7 @@ export async function main(cmd, rawArgs) {
       ok: false,
       level: '✖',
       detail: `daemon not running on ${base()}`,
-      fix: 'ltt start',
+      fix: 'cotalk start',
     });
   } else if (!daemonToken) {
     results.push({
@@ -130,7 +130,7 @@ export async function main(cmd, rawArgs) {
       ok: false,
       level: '✖',
       detail: `daemon running on ${base()} but token file unreadable in ${home()}`,
-      fix: 'ltt start',
+      fix: 'cotalk start',
     });
   } else {
     let stateOk = false;
@@ -154,7 +154,7 @@ export async function main(cmd, rawArgs) {
         ok: false,
         level: '✖',
         detail: `daemon running on ${base()} but /api/state failed: ${stateErr}`,
-        fix: 'ltt start',
+        fix: 'cotalk start',
       });
     }
   }
@@ -176,13 +176,13 @@ export async function main(cmd, rawArgs) {
   if (claudeProbe.found) {
     const r = runTool(claudeProbe.bin, ['plugin', 'list']);
     const out = (r.stdout || '') + (r.stderr || '');
-    const installed = out.includes('let-them-talk');
+    const installed = out.includes('cotalk');
     results.push({
       check: 'claude',
       ok: installed,
       level: installed ? '✔' : '✖',
-      detail: installed ? 'claude: let-them-talk plugin installed' : 'claude: let-them-talk plugin not installed',
-      fix: installed ? undefined : 'ltt setup --only claude',
+      detail: installed ? 'claude: cotalk plugin installed' : 'claude: cotalk plugin not installed',
+      fix: installed ? undefined : 'cotalk setup --only claude',
     });
   }
 
@@ -191,18 +191,18 @@ export async function main(cmd, rawArgs) {
   if (agyProbe.found) {
     const r = runTool(agyProbe.bin, ['mcp', 'list']);
     const out = (r.stdout || '') + (r.stderr || '');
-    const mcpRegistered = out.includes('let-them-talk');
+    const mcpRegistered = out.includes('cotalk');
 
-    const settingsPath = process.env.LTT_AGY_SETTINGS || join(os.homedir(), '.gemini', 'antigravity-cli', 'settings.json');
+    const settingsPath = process.env.COTALK_AGY_SETTINGS || join(os.homedir(), '.gemini', 'antigravity-cli', 'settings.json');
     let hasAllowRule = false;
     try {
       const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
-      hasAllowRule = Array.isArray(settings?.permissions?.allow) && settings.permissions.allow.includes('mcp(let-them-talk/*)');
+      hasAllowRule = Array.isArray(settings?.permissions?.allow) && settings.permissions.allow.includes('mcp(cotalk/*)');
     } catch {}
 
     let agyToken = null;
     const agyMcpPaths = [
-      process.env.LTT_AGY_MCP_CONFIG,
+      process.env.COTALK_AGY_MCP_CONFIG,
       join(os.homedir(), '.gemini', 'config', 'mcp_config.json'),
       join(os.homedir(), '.gemini', 'antigravity-cli', 'mcp_config.json'),
     ].filter(Boolean);
@@ -210,8 +210,8 @@ export async function main(cmd, rawArgs) {
       if (existsSync(p)) {
         try {
           const cfg = JSON.parse(readFileSync(p, 'utf8'));
-          const s = cfg?.mcpServers?.['let-them-talk'] || cfg?.['let-them-talk'];
-          agyToken = s?.headers?.['X-LTT-Token'] || null;
+          const s = cfg?.mcpServers?.['cotalk'] || cfg?.['cotalk'];
+          agyToken = s?.headers?.['X-COTALK-Token'] || null;
           if (agyToken) break;
         } catch {}
       }
@@ -222,16 +222,16 @@ export async function main(cmd, rawArgs) {
         check: 'agy',
         ok: false,
         level: '✖',
-        detail: 'agy: let-them-talk MCP not registered',
-        fix: 'ltt setup --only agy',
+        detail: 'agy: cotalk MCP not registered',
+        fix: 'cotalk setup --only agy',
       });
     } else if (!hasAllowRule) {
       results.push({
         check: 'agy',
         ok: false,
         level: '✖',
-        detail: `agy: allow-rule mcp(let-them-talk/*) missing in ${settingsPath}`,
-        fix: 'ltt agy-mcp',
+        detail: `agy: allow-rule mcp(cotalk/*) missing in ${settingsPath}`,
+        fix: 'cotalk agy-mcp',
       });
     } else if (daemonToken && agyToken && agyToken !== daemonToken) {
       results.push({
@@ -239,14 +239,14 @@ export async function main(cmd, rawArgs) {
         ok: false,
         level: '✖',
         detail: 'agy: stale MCP token (does not match daemon)',
-        fix: 'ltt setup',
+        fix: 'cotalk setup',
       });
     } else {
       results.push({
         check: 'agy',
         ok: true,
         level: '✔',
-        detail: 'agy: let-them-talk MCP registered and permissions allowed',
+        detail: 'agy: cotalk MCP registered and permissions allowed',
       });
     }
   }
@@ -254,14 +254,14 @@ export async function main(cmd, rawArgs) {
   // codex
   const codexProbe = probeTool('codex');
   if (codexProbe.found) {
-    const codexCfgPath = process.env.LTT_CODEX_CONFIG || join(os.homedir(), '.codex', 'config.toml');
+    const codexCfgPath = process.env.COTALK_CODEX_CONFIG || join(os.homedir(), '.codex', 'config.toml');
     let hasMcp = false;
     let codexToken = null;
     if (existsSync(codexCfgPath)) {
       try {
         const text = readFileSync(codexCfgPath, 'utf8');
-        hasMcp = text.includes('[mcp_servers.let-them-talk]');
-        const m = /"X-LTT-Token"\s*=\s*"([^"]+)"/.exec(text);
+        hasMcp = text.includes('[mcp_servers.cotalk]');
+        const m = /"X-COTALK-Token"\s*=\s*"([^"]+)"/.exec(text);
         if (m) codexToken = m[1];
       } catch {}
     }
@@ -271,8 +271,8 @@ export async function main(cmd, rawArgs) {
         check: 'codex',
         ok: false,
         level: '✖',
-        detail: `codex: [mcp_servers.let-them-talk] missing in ${codexCfgPath}`,
-        fix: 'ltt setup --only codex',
+        detail: `codex: [mcp_servers.cotalk] missing in ${codexCfgPath}`,
+        fix: 'cotalk setup --only codex',
       });
     } else if (daemonToken && codexToken && codexToken !== daemonToken) {
       results.push({
@@ -280,19 +280,19 @@ export async function main(cmd, rawArgs) {
         ok: false,
         level: '✖',
         detail: `codex: stale MCP token in ${codexCfgPath} (does not match daemon)`,
-        fix: 'ltt setup',
+        fix: 'cotalk setup',
       });
     } else {
       results.push({
         check: 'codex',
         ok: true,
         level: '✔',
-        detail: `codex: let-them-talk MCP server configured in ${codexCfgPath}`,
+        detail: `codex: cotalk MCP server configured in ${codexCfgPath}`,
       });
     }
   }
 
-  // 6. identity: .ltt.json found from cwd and valid (findConfig); warn (not fail) when absent
+  // 6. identity: .cotalk.json found from cwd and valid (findConfig); warn (not fail) when absent
   const cfg = findConfig(process.cwd());
   if (cfg) {
     const who = cfg.config.agent ? `${cfg.config.agent} in ${cfg.config.workspace}` : `workspace ${cfg.config.workspace}`;
@@ -306,7 +306,7 @@ export async function main(cmd, rawArgs) {
     let dir = process.cwd();
     let foundFile = null;
     for (;;) {
-      const p = join(dir, '.ltt.json');
+      const p = join(dir, '.cotalk.json');
       if (existsSync(p)) { foundFile = p; break; }
       const up = dirname(dir);
       if (up === dir) break;
@@ -317,16 +317,16 @@ export async function main(cmd, rawArgs) {
         check: 'identity',
         ok: false,
         level: '✖',
-        detail: `invalid .ltt.json at ${foundFile}`,
-        fix: 'ltt init --force',
+        detail: `invalid .cotalk.json at ${foundFile}`,
+        fix: 'cotalk init --force',
       });
     } else {
       results.push({
         check: 'identity',
         ok: false,
         level: '!',
-        detail: 'no .ltt.json found from current directory',
-        fix: 'ltt init',
+        detail: 'no .cotalk.json found from current directory',
+        fix: 'cotalk init',
       });
     }
   }

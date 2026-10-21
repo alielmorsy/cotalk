@@ -1,2 +1,2 @@
-// Preloaded by `npm test`: identity env from an `ltt run` / `ltt worker` shell must not leak into tests.
-for (const k of ['LTT_AGENT', 'LTT_ROLE', 'LTT_OWNS', 'LTT_WORKER', 'LTT_WORKER_DETACHED', 'LTT_TOOL', 'CLAUDECODE']) delete process.env[k];
+// Preloaded by `npm test`: identity env from an `cotalk run` / `cotalk worker` shell must not leak into tests.
+for (const k of ['COTALK_AGENT', 'COTALK_ROLE', 'COTALK_OWNS', 'COTALK_WORKER', 'COTALK_WORKER_DETACHED', 'COTALK_TOOL', 'CLAUDECODE']) delete process.env[k];

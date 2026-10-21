@@ -24,7 +24,7 @@ function runHook(name, input, env, { killAfterMs } = {}) {
 
 function project(t, cfg) {
   const dir = tmpHome(t);
-  writeFileSync(join(dir, '.ltt.json'), JSON.stringify(cfg));
+  writeFileSync(join(dir, '.cotalk.json'), JSON.stringify(cfg));
   return dir;
 }
 
@@ -38,7 +38,7 @@ test('hooks down: nudge/stop/wake exit 0 fast with no output', async (t) => {
   const home = tmpHome(t), port = await freePort();
   const cwd = project(t, { workspace: 'shop', agent: 'api' });
   for (const name of ['nudge.js', 'stop.js', 'wake.js']) {
-    const r = await runHook(name, { cwd, session_id: 's' }, { LTT_HOME: home, LTT_PORT: String(port), CLAUDECODE: '1' });
+    const r = await runHook(name, { cwd, session_id: 's' }, { COTALK_HOME: home, COTALK_PORT: String(port), CLAUDECODE: '1' });
     assert.equal(r.code, 0, name);
     assert.equal(r.out, '', name);
     // wall time includes node spawn/boot/teardown, which alone reach 1-3 s on Windows while the parallel suite runs;
@@ -49,16 +49,16 @@ test('hooks down: nudge/stop/wake exit 0 fast with no output', async (t) => {
 
 test('session-start without config explains how to join', async (t) => {
   const cwd = tmpHome(t), home = tmpHome(t);
-  const r = await runHook('session-start.js', { cwd, hook_event_name: 'SessionStart' }, { LTT_HOME: home, LTT_PORT: String(await freePort()) });
+  const r = await runHook('session-start.js', { cwd, hook_event_name: 'SessionStart' }, { COTALK_HOME: home, COTALK_PORT: String(await freePort()) });
   assert.equal(r.code, 0);
-  assert.match(r.json.hookSpecificOutput.additionalContext, /no \.ltt\.json/);
+  assert.match(r.json.hookSpecificOutput.additionalContext, /no \.cotalk\.json/);
 });
 
 test('session-start starts the daemon, registers, and lists peers', async (t) => {
   // registered first: after-hooks run FIFO, so the detached daemon must be shut down (and gone) before tmpHome removes its home
   let home, port;
   t.after(async () => {
-    try { await fetch(`http://127.0.0.1:${port}/api/shutdown`, { method: 'POST', headers: { 'x-ltt-token': readFileSync(join(home, 'token'), 'utf8').trim() } }); } catch {}
+    try { await fetch(`http://127.0.0.1:${port}/api/shutdown`, { method: 'POST', headers: { 'x-cotalk-token': readFileSync(join(home, 'token'), 'utf8').trim() } }); } catch {}
     for (let i = 0; i < 40; i++) {
       try { await fetch(`http://127.0.0.1:${port}/health`); } catch { break; }
       await new Promise(r => setTimeout(r, 100));
@@ -66,7 +66,7 @@ test('session-start starts the daemon, registers, and lists peers', async (t) =>
     await new Promise(r => setTimeout(r, 200)); // port closes just before process.exit releases the db
   });
   home = tmpHome(t); port = await freePort();
-  const env = { LTT_HOME: home, LTT_PORT: String(port), CLAUDECODE: '1' };
+  const env = { COTALK_HOME: home, COTALK_PORT: String(port), CLAUDECODE: '1' };
   const web = project(t, { workspace: 'shop', agent: 'web', role: 'frontend' });
   const api = project(t, { workspace: 'shop', agent: 'api', role: 'REST API', owns: ['api/**'] });
   const r1 = await runHook('session-start.js', { cwd: web, session_id: 'w1', hook_event_name: 'SessionStart' }, env);
@@ -79,18 +79,18 @@ test('session-start starts the daemon, registers, and lists peers', async (t) =>
 
 test('nudge injects once; stop blocks once', async (t) => {
   const d = await startDaemon(t);
-  const env = { LTT_HOME: d.home, LTT_PORT: String(d.port), CLAUDECODE: '1' };
+  const env = { COTALK_HOME: d.home, COTALK_PORT: String(d.port), CLAUDECODE: '1' };
   const cwd = project(t, { workspace: 'shop', agent: 'api' });
   const { call } = mcp(d.base, d.token);
-  await call('ltt_register', { workspace: 'shop', agent: 'api' });
-  await call('ltt_register', { workspace: 'shop', agent: 'web' });
-  await call('ltt_request', { workspace: 'shop', agent: 'web', to: 'api', kind: 'question', title: 'Pagination?' });
+  await call('cotalk_register', { workspace: 'shop', agent: 'api' });
+  await call('cotalk_register', { workspace: 'shop', agent: 'web' });
+  await call('cotalk_request', { workspace: 'shop', agent: 'web', to: 'api', kind: 'question', title: 'Pagination?' });
   const s1 = await runHook('stop.js', { cwd, hook_event_name: 'Stop' }, env);
   assert.equal(s1.json.decision, 'block');
   assert.match(s1.json.reason, /Pagination\?/);
   const s2 = await runHook('stop.js', { cwd, hook_event_name: 'Stop' }, env);
   assert.equal(s2.out, '', 'stop blocks once');
-  await call('ltt_board_write', { workspace: 'shop', agent: 'web', key: 'web.routes', kind: 'note', title: 'Routes', body: '/' });
+  await call('cotalk_board_write', { workspace: 'shop', agent: 'web', key: 'web.routes', kind: 'note', title: 'Routes', body: '/' });
   const n1 = await runHook('nudge.js', { cwd, hook_event_name: 'UserPromptSubmit' }, env);
   assert.equal(n1.json.hookSpecificOutput.hookEventName, 'UserPromptSubmit');
   assert.match(n1.json.hookSpecificOutput.additionalContext, /1 board update/);
@@ -102,16 +102,16 @@ test('nudge injects once; stop blocks once', async (t) => {
 
 test('stop does not block on a claim (nothing for the requester to do)', async (t) => {
   const d = await startDaemon(t);
-  const env = { LTT_HOME: d.home, LTT_PORT: String(d.port), CLAUDECODE: '1' };
+  const env = { COTALK_HOME: d.home, COTALK_PORT: String(d.port), CLAUDECODE: '1' };
   const cwd = project(t, { workspace: 'shop', agent: 'web' });
   const { call } = mcp(d.base, d.token);
-  await call('ltt_register', { workspace: 'shop', agent: 'web' });
-  await call('ltt_register', { workspace: 'shop', agent: 'api' });
-  await call('ltt_request', { workspace: 'shop', agent: 'web', to: 'api', kind: 'task', title: 'Build it' });
-  await call('ltt_respond', { workspace: 'shop', agent: 'api', id: 1, action: 'claim' });
+  await call('cotalk_register', { workspace: 'shop', agent: 'web' });
+  await call('cotalk_register', { workspace: 'shop', agent: 'api' });
+  await call('cotalk_request', { workspace: 'shop', agent: 'web', to: 'api', kind: 'task', title: 'Build it' });
+  await call('cotalk_respond', { workspace: 'shop', agent: 'api', id: 1, action: 'claim' });
   const s1 = await runHook('stop.js', { cwd, hook_event_name: 'Stop' }, env);
   assert.equal(s1.out, '', 'claim is not urgent');
-  await call('ltt_respond', { workspace: 'shop', agent: 'api', id: 1, action: 'done', response: 'ok' });
+  await call('cotalk_respond', { workspace: 'shop', agent: 'api', id: 1, action: 'done', response: 'ok' });
   const s2 = await runHook('stop.js', { cwd, hook_event_name: 'Stop' }, env);
   assert.equal(s2.json.decision, 'block', 'done is urgent');
 });
@@ -126,17 +126,17 @@ test('wake: poll stays below the 30 min offline threshold and the fetch 300 s he
 
 test('wake: exits 2 when a peer asks; exits 0 at once outside Claude', async (t) => {
   const d = await startDaemon(t);
-  const env = { LTT_HOME: d.home, LTT_PORT: String(d.port), CLAUDECODE: '1' };
+  const env = { COTALK_HOME: d.home, COTALK_PORT: String(d.port), CLAUDECODE: '1' };
   const cwd = project(t, { workspace: 'shop', agent: 'api' });
   const { call } = mcp(d.base, d.token);
-  await call('ltt_register', { workspace: 'shop', agent: 'api' });
-  await call('ltt_register', { workspace: 'shop', agent: 'web' });
+  await call('cotalk_register', { workspace: 'shop', agent: 'api' });
+  await call('cotalk_register', { workspace: 'shop', agent: 'web' });
   const notAgy = await runHook('wake.js', { cwd, session_id: 'x' }, { ...env, CLAUDECODE: '' });
   assert.equal(notAgy.code, 0);
   assert.ok(notAgy.ms < 2500); // measures node startup too: flaky under parallel load below this
   const waking = runHook('wake.js', { cwd, session_id: 'sess-1' }, env, { killAfterMs: 10_000 });
   await new Promise(r => setTimeout(r, 500));
-  await call('ltt_request', { workspace: 'shop', agent: 'web', to: 'api', kind: 'task', title: 'Add /invoices' });
+  await call('cotalk_request', { workspace: 'shop', agent: 'web', to: 'api', kind: 'task', title: 'Add /invoices' });
   const r = await waking;
   assert.equal(r.code, 2);
   assert.match(r.err, /Add \/invoices/);
@@ -144,9 +144,9 @@ test('wake: exits 2 when a peer asks; exits 0 at once outside Claude', async (t)
 
 test('wake: newer waiter for the same agent supersedes older (even from another session)', async (t) => {
   const d = await startDaemon(t);
-  const env = { LTT_HOME: d.home, LTT_PORT: String(d.port), CLAUDECODE: '1' };
+  const env = { COTALK_HOME: d.home, COTALK_PORT: String(d.port), CLAUDECODE: '1' };
   const cwd = project(t, { workspace: 'shop', agent: 'api' });
-  await mcp(d.base, d.token).call('ltt_register', { workspace: 'shop', agent: 'api' });
+  await mcp(d.base, d.token).call('cotalk_register', { workspace: 'shop', agent: 'api' });
   const older = runHook('wake.js', { cwd, session_id: 'dead-session' }, env, { killAfterMs: 10_000 });
   await new Promise(r => setTimeout(r, 500));
   const newer = runHook('wake.js', { cwd, session_id: 'new-session' }, env, { killAfterMs: 1500 });

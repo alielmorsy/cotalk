@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'no
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { readSettings, writeSettings, getSettingsDefaults, validateSettings, SETTINGS_DEFAULTS } from '../daemon/settings.js';
-import { LttError } from '../daemon/store.js';
+import { CotalkError } from '../daemon/store.js';
 
 test('settings: defaults match expected specification', () => {
   const defaults = getSettingsDefaults();
@@ -39,13 +39,13 @@ test('settings: validateSettings checks ranges and invariants', () => {
 });
 
 test('settings: readSettings returns defaults when config.json missing or empty', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'ltt-settings-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cotalk-settings-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const origHome = process.env.LTT_HOME;
-  process.env.LTT_HOME = dir;
+  const origHome = process.env.COTALK_HOME;
+  process.env.COTALK_HOME = dir;
   t.after(() => {
-    if (origHome) process.env.LTT_HOME = origHome;
-    else delete process.env.LTT_HOME;
+    if (origHome) process.env.COTALK_HOME = origHome;
+    else delete process.env.COTALK_HOME;
   });
 
   const s = await readSettings();
@@ -53,13 +53,13 @@ test('settings: readSettings returns defaults when config.json missing or empty'
 });
 
 test('settings: readSettings resets out-of-range hand-edited values to defaults', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'ltt-settings-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cotalk-settings-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const origHome = process.env.LTT_HOME;
-  process.env.LTT_HOME = dir;
+  const origHome = process.env.COTALK_HOME;
+  process.env.COTALK_HOME = dir;
   t.after(() => {
-    if (origHome) process.env.LTT_HOME = origHome;
-    else delete process.env.LTT_HOME;
+    if (origHome) process.env.COTALK_HOME = origHome;
+    else delete process.env.COTALK_HOME;
   });
 
   const configFile = join(dir, 'config.json');
@@ -81,13 +81,13 @@ test('settings: readSettings resets out-of-range hand-edited values to defaults'
 });
 
 test('settings: writeSettings persists valid settings and merges with existing', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'ltt-settings-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cotalk-settings-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const origHome = process.env.LTT_HOME;
-  process.env.LTT_HOME = dir;
+  const origHome = process.env.COTALK_HOME;
+  process.env.COTALK_HOME = dir;
   t.after(() => {
-    if (origHome) process.env.LTT_HOME = origHome;
-    else delete process.env.LTT_HOME;
+    if (origHome) process.env.COTALK_HOME = origHome;
+    else delete process.env.COTALK_HOME;
   });
 
   const updated = await writeSettings({ activeMs: 60_000, idleMs: 1_200_000 });
@@ -101,13 +101,13 @@ test('settings: writeSettings persists valid settings and merges with existing',
 });
 
 test('settings: writeSettings preserves unrelated keys and persists only known settings', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'ltt-settings-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cotalk-settings-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const origHome = process.env.LTT_HOME;
-  process.env.LTT_HOME = dir;
+  const origHome = process.env.COTALK_HOME;
+  process.env.COTALK_HOME = dir;
   t.after(() => {
-    if (origHome) process.env.LTT_HOME = origHome;
-    else delete process.env.LTT_HOME;
+    if (origHome) process.env.COTALK_HOME = origHome;
+    else delete process.env.COTALK_HOME;
   });
 
   const configFile = join(dir, 'config.json');
@@ -124,13 +124,13 @@ test('settings: writeSettings preserves unrelated keys and persists only known s
 });
 
 test('settings: writeSettings rejects corrupted config.json with invalid error instead of overwriting', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'ltt-settings-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cotalk-settings-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const origHome = process.env.LTT_HOME;
-  process.env.LTT_HOME = dir;
+  const origHome = process.env.COTALK_HOME;
+  process.env.COTALK_HOME = dir;
   t.after(() => {
-    if (origHome) process.env.LTT_HOME = origHome;
-    else delete process.env.LTT_HOME;
+    if (origHome) process.env.COTALK_HOME = origHome;
+    else delete process.env.COTALK_HOME;
   });
 
   const configFile = join(dir, 'config.json');
@@ -138,25 +138,25 @@ test('settings: writeSettings rejects corrupted config.json with invalid error i
 
   await assert.rejects(
     async () => writeSettings({ activeMs: 60_000 }),
-    (err) => err instanceof LttError && err.code === 'invalid'
+    (err) => err instanceof CotalkError && err.code === 'invalid'
   );
   // Ensure corrupted file was NOT destroyed or overwritten
   assert.equal(readFileSync(configFile, 'utf8'), '{ corrupted json syntax');
 });
 
-test('settings: writeSettings rejects invalid input with LttError invalid', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'ltt-settings-'));
+test('settings: writeSettings rejects invalid input with CotalkError invalid', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'cotalk-settings-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const origHome = process.env.LTT_HOME;
-  process.env.LTT_HOME = dir;
+  const origHome = process.env.COTALK_HOME;
+  process.env.COTALK_HOME = dir;
   t.after(() => {
-    if (origHome) process.env.LTT_HOME = origHome;
-    else delete process.env.LTT_HOME;
+    if (origHome) process.env.COTALK_HOME = origHome;
+    else delete process.env.COTALK_HOME;
   });
 
-  await assert.rejects(async () => writeSettings(null), (err) => err instanceof LttError && err.code === 'invalid');
-  await assert.rejects(async () => writeSettings('invalid'), (err) => err instanceof LttError && err.code === 'invalid');
-  await assert.rejects(async () => writeSettings({ activeMs: 10_000 }), (err) => err instanceof LttError && err.code === 'invalid');
-  await assert.rejects(async () => writeSettings({ idleMs: 500_000 }), (err) => err instanceof LttError && err.code === 'invalid');
-  await assert.rejects(async () => writeSettings({ activeMs: 900_000, idleMs: 700_000 }), (err) => err instanceof LttError && err.code === 'invalid');
+  await assert.rejects(async () => writeSettings(null), (err) => err instanceof CotalkError && err.code === 'invalid');
+  await assert.rejects(async () => writeSettings('invalid'), (err) => err instanceof CotalkError && err.code === 'invalid');
+  await assert.rejects(async () => writeSettings({ activeMs: 10_000 }), (err) => err instanceof CotalkError && err.code === 'invalid');
+  await assert.rejects(async () => writeSettings({ idleMs: 500_000 }), (err) => err instanceof CotalkError && err.code === 'invalid');
+  await assert.rejects(async () => writeSettings({ activeMs: 900_000, idleMs: 700_000 }), (err) => err instanceof CotalkError && err.code === 'invalid');
 });

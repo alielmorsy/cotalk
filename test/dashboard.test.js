@@ -145,7 +145,7 @@ test('dashboard static scan: no token in URLs or headers', () => {
   const files = readdirSync(DASHBOARD_DIR).filter(f => f.endsWith('.js') || f.endsWith('.html'));
   for (const file of files) {
     const content = readFileSync(join(DASHBOARD_DIR, file), 'utf8');
-    assert.doesNotMatch(content, /x-ltt-token/i, `File ${file} must not reference x-ltt-token header`);
+    assert.doesNotMatch(content, /x-cotalk-token/i, `File ${file} must not reference x-cotalk-token header`);
     assert.doesNotMatch(content, /[?&]token=/i, `File ${file} must not reference ?token= in URLs`);
   }
 });

@@ -1,4 +1,4 @@
-import { LttError } from './store.js';
+import { CotalkError } from './store.js';
 import { TOOLS, callTool } from './tools.js';
 
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
@@ -24,7 +24,7 @@ export function createMcpHandler(store, { waitForEvent, version = '0.1.0' } = {}
           return ok(id, {
             protocolVersion: VERSIONS.includes(v) ? v : '2025-06-18',
             capabilities: { tools: {} },
-            serverInfo: { name: 'let-them-talk', version },
+            serverInfo: { name: 'cotalk', version },
             instructions: INSTRUCTIONS,
           });
         }
@@ -35,7 +35,7 @@ export function createMcpHandler(store, { waitForEvent, version = '0.1.0' } = {}
             const { text, isError } = await callTool(store, params?.name, params?.arguments, { waitForEvent });
             return ok(id, { content: [{ type: 'text', text }], isError });
           } catch (err) {
-            if (err instanceof LttError && err.code === 'not_found') return fail(id, -32602, err.message);
+            if (err instanceof CotalkError && err.code === 'not_found') return fail(id, -32602, err.message);
             throw err;
           }
         }

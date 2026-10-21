@@ -14,7 +14,7 @@ test('unreadLine empty and plural', () => {
   assert.equal(unreadLine(null), '📭 no unread');
   assert.equal(
     unreadLine({ total: 3, questions: 2, tasks: 0, updates: 0, board: 1, joined: 0 }),
-    '📬 3 unread: 2 questions, 1 board update — call ltt_inbox'
+    '📬 3 unread: 2 questions, 1 board update — call cotalk_inbox'
   );
 });
 

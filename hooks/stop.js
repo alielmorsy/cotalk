@@ -10,8 +10,8 @@ try {
     const n = await api('GET', '/api/unread', { query: { workspace, agent, mode: 'notify' } });
     const urgent = n.events.filter(e => URGENT_TYPES.includes(e.type));
     if (urgent.length) {
-      const reason = `let-them-talk: peers need you before you stop:\n${describeEvents(urgent, 10)}\n`
-        + 'Handle them now (ltt_inbox, then ltt_respond or ltt_requests), or tell the user why you are leaving them, then stop.';
+      const reason = `cotalk: peers need you before you stop:\n${describeEvents(urgent, 10)}\n`
+        + 'Handle them now (cotalk_inbox, then cotalk_respond or cotalk_requests), or tell the user why you are leaving them, then stop.';
       out = JSON.stringify({ decision: 'block', reason: reason.slice(0, 9000) });
     }
   }

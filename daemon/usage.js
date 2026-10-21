@@ -37,14 +37,14 @@ export function parseClaude(text) {
   return done(text, windows);
 }
 
-const BIN_VAR = { agy: 'LTT_AGY_BIN', claude: 'LTT_CLAUDE_BIN' };
+const BIN_VAR = { agy: 'COTALK_AGY_BIN', claude: 'COTALK_CLAUDE_BIN' };
 
-// resolves to the tool's stdout. Run from the temp dir with no LTT_* env, so a `claude -p` started here
-// can't find a .ltt.json or a role and re-register as an agent (e.g. the lead).
-// ponytail: real executables only (both are .exe); an npm .cmd shim gives "not found", set LTT_<TOOL>_BIN.
+// resolves to the tool's stdout. Run from the temp dir with no COTALK_* env, so a `claude -p` started here
+// can't find a .cotalk.json or a role and re-register as an agent (e.g. the lead).
+// ponytail: real executables only (both are .exe); an npm .cmd shim gives "not found", set COTALK_<TOOL>_BIN.
 export function runTool(tool, { timeoutMs = 20_000 } = {}) {
   const bin = process.env[BIN_VAR[tool]] || tool;
-  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('LTT_')));
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('COTALK_')));
   const [file, args] = bin.endsWith('.js') ? [process.execPath, [bin, '-p', '/usage']] : [bin, ['-p', '/usage']];
   return new Promise((resolve, reject) => {
     execFile(file, args, { cwd: tmpdir(), env, timeout: timeoutMs, windowsHide: true }, (err, stdout, stderr) => {

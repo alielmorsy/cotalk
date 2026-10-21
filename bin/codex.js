@@ -1,4 +1,4 @@
-// `ltt codex-mcp [--dry-run] [--hooks]`: `codex mcp add` has no header option, so patch ~/.codex/config.toml directly.
+// `cotalk codex-mcp [--dry-run] [--hooks]`: `codex mcp add` has no header option, so patch ~/.codex/config.toml directly.
 import { readFileSync, writeFileSync, existsSync, copyFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import os from 'node:os';
@@ -6,10 +6,10 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { base, ensureDaemon, readToken, home } from '../lib/client.js';
 
-const NAME = 'let-them-talk';
+const NAME = 'cotalk';
 const HOOK_JS = fileURLToPath(new URL('../hooks/codex.js', import.meta.url)).replaceAll('\\', '/');
 const T = ['mcp_servers', NAME];
-const CANON_OURS = /^\s*\[mcp_servers\.let-them-talk(\.[A-Za-z0-9_-]+)*\]\s*(#.*)?$/;
+const CANON_OURS = /^\s*\[mcp_servers\.cotalk(\.[A-Za-z0-9_-]+)*\]\s*(#.*)?$/;
 const CANON_FEATURES = /^\s*\[features\]\s*(#.*)?$/;
 const refuse = (why) => { throw Object.assign(new Error(why), { refusal: true }); };
 const related = (a, b) => a.every((x, i) => i >= b.length || x === b[i]); // one key path is a prefix of the other
@@ -105,7 +105,7 @@ function check(lines, hooks) {
   });
 }
 
-// Drop our [mcp_servers.let-them-talk] table (and subtables) and append a fresh one; every other line is kept byte for byte.
+// Drop our [mcp_servers.cotalk] table (and subtables) and append a fresh one; every other line is kept byte for byte.
 // Throws an Error with .refusal = true when the edit would be ambiguous.
 export function patchToml(text, url, token, { hooks = false } = {}) {
   const eol = text.includes('\r\n') ? '\r\n' : '\n', cr = eol === '\r\n' ? '\r' : '';
@@ -144,7 +144,7 @@ export function patchToml(text, url, token, { hooks = false } = {}) {
   const q = JSON.stringify; // a TOML basic string
   let out = kept.map(l => l.raw).join('\n').replace(/\s+$/, '');
   if (addFeatures) out = (out ? out + eol + eol : '') + `[features]${eol}codex_hooks = true`;
-  out = (out ? out + eol + eol : '') + [`[mcp_servers.${NAME}]`, `url = ${q(url)}`, `http_headers = { "X-LTT-Token" = ${q(token)} }`].join(eol) + eol;
+  out = (out ? out + eol + eol : '') + [`[mcp_servers.${NAME}]`, `url = ${q(url)}`, `http_headers = { "X-COTALK-Token" = ${q(token)} }`].join(eol) + eol;
 
   // sanity: still readable, our table exactly once, [features] at most once, every other header kept in order
   const clean = 'the edited file did not come out clean (duplicate, missing or broken tables)';
@@ -172,29 +172,29 @@ export function hooksJson(existing) {
   return { ...existing, hooks };
 }
 
-// .ltt-bak = the file before ltt ever touched it; .ltt-prev = the file before this write
+// .cotalk-bak = the file before cotalk ever touched it; .cotalk-prev = the file before this write
 const backup = p => {
   if (!existsSync(p)) return;
-  if (!existsSync(p + '.ltt-bak')) copyFileSync(p, p + '.ltt-bak');
-  copyFileSync(p, p + '.ltt-prev');
+  if (!existsSync(p + '.cotalk-bak')) copyFileSync(p, p + '.cotalk-bak');
+  copyFileSync(p, p + '.cotalk-prev');
 };
 const readText = p => existsSync(p) ? readFileSync(p, 'utf8') : '';
 
 export async function main(cmd, rawArgs) {
   const dry = rawArgs.includes('--dry-run'), hooks = rawArgs.includes('--hooks');
   const url = `${base()}/mcp`;
-  const cfgPath = process.env.LTT_CODEX_CONFIG || join(os.homedir(), '.codex', 'config.toml');
+  const cfgPath = process.env.COTALK_CODEX_CONFIG || join(os.homedir(), '.codex', 'config.toml');
   const hooksPath = join(dirname(cfgPath), 'hooks.json');
   const plan = token => {
     try { return patchToml(readText(cfgPath), url, token, { hooks }); } catch (e) {
       if (!e.refusal) throw e;
       console.error([
-        `ltt codex-mcp: not editing ${cfgPath}: ${e.message}. Nothing was written.`,
-        `Edit ${cfgPath} by hand: remove any existing let-them-talk server entry, then add this table`,
+        `cotalk codex-mcp: not editing ${cfgPath}: ${e.message}. Nothing was written.`,
+        `Edit ${cfgPath} by hand: remove any existing cotalk server entry, then add this table`,
         `(replace <token> with the contents of ${join(home(), 'token')}):`, '',
-        `[mcp_servers.${NAME}]`, `url = ${JSON.stringify(url)}`, 'http_headers = { "X-LTT-Token" = "<token>" }',
+        `[mcp_servers.${NAME}]`, `url = ${JSON.stringify(url)}`, 'http_headers = { "X-COTALK-Token" = "<token>" }',
         ...(hooks ? ['', 'and set this in your one [features] table (create it if missing):', '', '[features]', 'codex_hooks = true',
-          '', `(${hooksPath} is written by \`ltt codex-mcp --hooks\` once the config is in this plain form.)`] : []),
+          '', `(${hooksPath} is written by \`cotalk codex-mcp --hooks\` once the config is in this plain form.)`] : []),
       ].join('\n'));
       process.exitCode = 1;
       return null;
@@ -209,13 +209,13 @@ export async function main(cmd, rawArgs) {
     return;
   }
 
-  const bin = process.env.LTT_CODEX_BIN || 'codex';
+  const bin = process.env.COTALK_CODEX_BIN || 'codex';
   // probe only: the token never goes on a command line. `codex` is a .cmd shim on Windows, so it needs a shell there.
   const shell = process.platform === 'win32' && !/\.(js|exe)$/i.test(bin);
   const probe = bin.endsWith('.js') ? spawnSync(process.execPath, [bin, '--version'], { encoding: 'utf8' })
     : spawnSync(bin, ['--version'], { encoding: 'utf8', shell });
   if (probe.error || probe.status !== 0) {
-    console.error(`codex not found (${bin}); put codex on PATH or set LTT_CODEX_BIN to its path`);
+    console.error(`codex not found (${bin}); put codex on PATH or set COTALK_CODEX_BIN to its path`);
     process.exitCode = 1;
     return;
   }
@@ -228,7 +228,7 @@ export async function main(cmd, rawArgs) {
   mkdirSync(dirname(cfgPath), { recursive: true });
   backup(cfgPath);
   writeFileSync(cfgPath, next);
-  console.log(`let-them-talk MCP server written to ${cfgPath}`);
+  console.log(`cotalk MCP server written to ${cfgPath}`);
   if (hooks) {
     backup(hooksPath);
     let cur = null;

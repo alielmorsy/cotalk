@@ -1,4 +1,4 @@
-// Main entry point for let-them-talk dashboard.
+// Main entry point for cotalk dashboard.
 // Uses HttpOnly session cookie auth for all daemon requests.
 // U6: Esc closes drawer/modal, / focuses search, 1-6 switch views when not typing.
 
@@ -91,10 +91,10 @@ export async function refresh() {
 function renderApp() {
   if (state.workspaces.length === 0) {
     root.replaceChildren(el('div', { class: 'empty-screen' },
-      el('h1', null, 'let-them-talk'),
+      el('h1', null, 'cotalk'),
       el('div', { class: 'empty-box mt-4' },
         el('div', { class: 'empty-title' }, 'No Workspaces Found'),
-        el('div', { class: 'empty-desc' }, 'Start an agent session in a directory with .ltt.json.')
+        el('div', { class: 'empty-desc' }, 'Start an agent session in a directory with .cotalk.json.')
       )
     ));
     return;
@@ -132,7 +132,7 @@ function renderApp() {
 
   const header = el('header', { class: 'app-header' },
     el('div', { class: 'header-left' },
-      el('span', { class: 'header-logo' }, 'let-them-talk'),
+      el('span', { class: 'header-logo' }, 'cotalk'),
       connBadge,
       wsSelect
     ),
@@ -252,10 +252,10 @@ function switchView(viewId) {
 function renderUnauthorized() {
   clearToasts();
   root.replaceChildren(el('div', { class: 'empty-screen' },
-    el('h1', null, 'let-them-talk'),
+    el('h1', null, 'cotalk'),
     el('div', { class: 'empty-box error-box mt-4' },
       el('div', { class: 'empty-title' }, 'Not Signed In'),
-      el('div', { class: 'empty-desc' }, 'Run `ltt dashboard` and open the link it prints.')
+      el('div', { class: 'empty-desc' }, 'Run `cotalk dashboard` and open the link it prints.')
     )
   ));
 }
@@ -282,7 +282,7 @@ function connectSSE() {
         document.hidden
       ) {
         if (state.sound) playChime();
-        if (state.notify) showDesktopNotification('let-them-talk', ev.summary || 'A request is waiting for you.');
+        if (state.notify) showDesktopNotification('cotalk', ev.summary || 'A request is waiting for you.');
       }
     } catch {}
     scheduleRefresh(300);

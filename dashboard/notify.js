@@ -54,7 +54,7 @@ export function showDesktopNotification(title, body) {
   try {
     new Notification(title, {
       body,
-      tag: 'ltt-event',
+      tag: 'cotalk-event',
     });
   } catch {
     // Ignore notification errors

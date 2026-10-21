@@ -1,10 +1,10 @@
 {
-  "name": "let-them-talk",
+  "name": "cotalk",
   "version": "0.1.5",
   "description": "Let Claude Code and Antigravity sessions share a board, ask each other questions, and hand off tasks.",
   "type": "module",
   "bin": {
-    "ltt": "bin/ltt.js"
+    "cotalk": "bin/cotalk.js"
   },
   "engines": {
     "node": ">=22.13"

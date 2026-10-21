@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, mkdirSync, renameSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { LttError } from './store.js';
+import { CotalkError } from './store.js';
 import { home } from '../lib/client.js';
 
 export const SETTINGS_DEFAULTS = Object.freeze({
@@ -73,7 +73,7 @@ export async function readSettings() {
 
 export async function writeSettings(newSettings) {
   if (!newSettings || typeof newSettings !== 'object' || Array.isArray(newSettings)) {
-    throw new LttError('invalid', 'settings must be an object');
+    throw new CotalkError('invalid', 'settings must be an object');
   }
 
   const file = configFilePath();
@@ -82,12 +82,12 @@ export async function writeSettings(newSettings) {
     const raw = readFileSync(file, 'utf8');
     existing = JSON.parse(raw);
     if (!existing || typeof existing !== 'object' || Array.isArray(existing)) {
-      throw new LttError('invalid', 'config.json root must be an object');
+      throw new CotalkError('invalid', 'config.json root must be an object');
     }
   } catch (err) {
-    if (err instanceof LttError) throw err;
+    if (err instanceof CotalkError) throw err;
     if (err.code !== 'ENOENT') {
-      throw new LttError('invalid', `failed to read config.json: ${err.message}`);
+      throw new CotalkError('invalid', `failed to read config.json: ${err.message}`);
     }
   }
 
@@ -97,7 +97,7 @@ export async function writeSettings(newSettings) {
 
   const { valid, errors, merged } = validateSettings(newSettings, currentSettings);
   if (!valid) {
-    throw new LttError('invalid', errors.join('; '));
+    throw new CotalkError('invalid', errors.join('; '));
   }
 
   const sanitized = {

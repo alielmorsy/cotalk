@@ -13,60 +13,60 @@ test('api, web and billing coordinate through the daemon', async (t) => {
   const as = agent => (name, args = {}) => c.call(name, { workspace: W, agent, ...args });
   const api = as('api'), web = as('web'), billing = as('billing');
 
-  await api('ltt_register', { role: 'REST API', owns: ['api/**'] });
-  await web('ltt_register', { role: 'frontend', owns: ['web/**'] });
-  await billing('ltt_register', { role: 'billing', owns: ['billing/**'] });
+  await api('cotalk_register', { role: 'REST API', owns: ['api/**'] });
+  await web('cotalk_register', { role: 'frontend', owns: ['web/**'] });
+  await billing('cotalk_register', { role: 'billing', owns: ['billing/**'] });
 
   // api publishes a contract; web reads it
-  await api('ltt_board_write', { key: 'api.users.schema', kind: 'contract', title: 'User', body: '{"id":"uuid","email":"string"}' });
-  const entry = await web('ltt_board_read', { key: 'api.users.schema' });
+  await api('cotalk_board_write', { key: 'api.users.schema', kind: 'contract', title: 'User', body: '{"id":"uuid","email":"string"}' });
+  const entry = await web('cotalk_board_read', { key: 'api.users.schema' });
   assert.equal(entry.data.entry.version, 1);
 
-  // web asks; api is blocked in ltt_wait and wakes up
-  await api('ltt_inbox'); // clear join events so the wait below is about the question
-  const waiting = api('ltt_wait', { timeout_seconds: 30 });
+  // web asks; api is blocked in cotalk_wait and wakes up
+  await api('cotalk_inbox'); // clear join events so the wait below is about the question
+  const waiting = api('cotalk_wait', { timeout_seconds: 30 });
   await new Promise(r => setTimeout(r, 200));
-  const q = await web('ltt_request', { to: 'api', kind: 'question', title: 'Is email unique?', refs: ['api.users.schema'] });
+  const q = await web('cotalk_request', { to: 'api', kind: 'question', title: 'Is email unique?', refs: ['api.users.schema'] });
   const woke = await waiting;
   assert.ok(woke.data.events.some(e => e.type === 'question.new'));
-  await api('ltt_respond', { id: q.data.request.id, action: 'answer', response: 'yes, unique index' });
-  const answered = await web('ltt_requests', { id: q.data.request.id });
+  await api('cotalk_respond', { id: q.data.request.id, action: 'answer', response: 'yes, unique index' });
+  const answered = await web('cotalk_requests', { id: q.data.request.id });
   assert.equal(answered.data.request.status, 'answered');
 
   // billing broadcasts a task; api claims and finishes it
-  const task = await billing('ltt_request', { to: '*', kind: 'task', title: 'Expose GET /users/:id/plan' });
-  await api('ltt_respond', { id: task.data.request.id, action: 'claim' });
-  const webIncoming = await web('ltt_requests', { box: 'incoming' });
+  const task = await billing('cotalk_request', { to: '*', kind: 'task', title: 'Expose GET /users/:id/plan' });
+  await api('cotalk_respond', { id: task.data.request.id, action: 'claim' });
+  const webIncoming = await web('cotalk_requests', { box: 'incoming' });
   assert.equal(webIncoming.data.requests.length, 0);
-  await api('ltt_board_write', { key: 'api.users.plan', kind: 'contract', title: 'GET /users/:id/plan', body: '{"plan":"free|pro"}' });
-  await api('ltt_respond', { id: task.data.request.id, action: 'done', response: 'see api.users.plan' });
-  const billingInbox = await billing('ltt_inbox');
+  await api('cotalk_board_write', { key: 'api.users.plan', kind: 'contract', title: 'GET /users/:id/plan', body: '{"plan":"free|pro"}' });
+  await api('cotalk_respond', { id: task.data.request.id, action: 'done', response: 'see api.users.plan' });
+  const billingInbox = await billing('cotalk_inbox');
   assert.ok(billingInbox.data.events.some(e => e.type === 'request.updated' && /finished/.test(e.summary)));
 
   // web cannot overwrite api's contract
-  const denied = await web('ltt_board_write', { key: 'api.users.schema', kind: 'contract', title: 'x', body: 'x' });
+  const denied = await web('cotalk_board_write', { key: 'api.users.schema', kind: 'contract', title: 'x', body: 'x' });
   assert.equal(denied.isError, true);
 
   // peers view
-  const peers = await billing('ltt_peers');
+  const peers = await billing('cotalk_peers');
   assert.deepEqual(peers.data.peers.map(p => p.agent), ['api', 'billing', 'web']);
 });
 
 test('data survives daemon restart', async (t) => {
   // d2 owns cleanup of the shared home; d1 gets a no-op context so its cleanup can't delete the home under d2
-  const home = mkdtempSync(join(tmpdir(), 'ltt-test-'));
+  const home = mkdtempSync(join(tmpdir(), 'cotalk-test-'));
   const d1 = await startDaemon({ after() {} }, { home });
   t.after(d1.stop);
-  await mcp(d1.base, d1.token).call('ltt_board_write', { workspace: W, agent: 'api', key: 'api.k', kind: 'note', title: 'K', body: 'kept' });
+  await mcp(d1.base, d1.token).call('cotalk_board_write', { workspace: W, agent: 'api', key: 'api.k', kind: 'note', title: 'K', body: 'kept' });
   await d1.stop();
   const d2 = await startDaemon(t, { home, port: d1.port });
-  const r = await mcp(d2.base, d2.token).call('ltt_board_read', { workspace: W, agent: 'web', key: 'api.k' });
+  const r = await mcp(d2.base, d2.token).call('cotalk_board_read', { workspace: W, agent: 'web', key: 'api.k' });
   assert.equal(r.data.entry.body, 'kept');
 });
 
 test('hook HTTP API: register, notify, urgent wait wakes on a peer task', async (t) => {
   const d = await startDaemon(t);
-  const headers = { 'content-type': 'application/json', 'x-ltt-token': d.token };
+  const headers = { 'content-type': 'application/json', 'x-cotalk-token': d.token };
   const get = async (path) => {
     const r = await fetch(`${d.base}${path}`, { headers });
     assert.equal(r.status, 200);
@@ -93,10 +93,10 @@ test('hook HTTP API: register, notify, urgent wait wakes on a peer task', async 
   let settled = false;
   waiting.then(() => { settled = true });
   const billing = (name, args) => mcp(d.base, d.token).call(name, { workspace: W, agent: 'billing', ...args });
-  await billing('ltt_board_write', { key: 'billing.plans', kind: 'note', title: 'Plans', body: 'free|pro' });
+  await billing('cotalk_board_write', { key: 'billing.plans', kind: 'note', title: 'Plans', body: 'free|pro' });
   await new Promise(r => setTimeout(r, 300));
   assert.equal(settled, false);
-  await billing('ltt_request', { to: 'api', kind: 'task', title: 'Expose plan' });
+  await billing('cotalk_request', { to: 'api', kind: 'task', title: 'Expose plan' });
   assert.deepEqual(await waiting, { result: 'event' });
 
   const after = await get(`/api/unread?${q('api', '&mode=notify')}`);

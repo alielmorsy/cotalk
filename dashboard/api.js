@@ -1,4 +1,4 @@
-// API client for let-them-talk daemon.
+// API client for cotalk daemon.
 // Uses HttpOnly session cookie auth for browser requests.
 import { setUnauthorized } from './toast.js';
 

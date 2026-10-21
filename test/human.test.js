@@ -5,13 +5,13 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { openStore, LttError, USER } from '../daemon/store.js';
+import { openStore, CotalkError, USER } from '../daemon/store.js';
 import { createServer } from '../daemon/server.js';
 import { startDaemon, mcp } from './helpers.js';
 
-const CLI = fileURLToPath(new URL('../bin/ltt.js', import.meta.url));
+const CLI = fileURLToPath(new URL('../bin/cotalk.js', import.meta.url));
 const WS = 'engine';
-const code = (fn) => { try { fn(); } catch (e) { assert.ok(e instanceof LttError); return e.code; } assert.fail('expected LttError'); };
+const code = (fn) => { try { fn(); } catch (e) { assert.ok(e instanceof CotalkError); return e.code; } assert.fail('expected CotalkError'); };
 
 function storeSetup() {
   const store = openStore(':memory:');
@@ -101,7 +101,7 @@ async function httpSetup(t) {
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   t.after(() => { server.closeAllConnections?.(); server.close(); store.close(); });
   const base = `http://127.0.0.1:${server.address().port}`;
-  const req = async (path, { method = 'GET', body, headers = { 'x-ltt-token': 'tok' } } = {}) => {
+  const req = async (path, { method = 'GET', body, headers = { 'x-cotalk-token': 'tok' } } = {}) => {
     const r = await fetch(base + path, { method, headers: { 'content-type': 'application/json', ...headers }, body: body === undefined ? undefined : JSON.stringify(body) });
     return { status: r.status, data: await r.json() };
   };
@@ -153,7 +153,7 @@ test('HTTP: /api/requests validates params; /api/state includes user', async (t)
 });
 
 function tmp(t) {
-  const d = mkdtempSync(join(tmpdir(), 'ltt-human-'));
+  const d = mkdtempSync(join(tmpdir(), 'cotalk-human-'));
   t.after(() => rmSync(d, { recursive: true, force: true }));
   return d;
 }
@@ -161,24 +161,24 @@ function tmp(t) {
 test('CLI: ask, task, inbox, reply, reject', async (t) => {
   const d = await startDaemon(t);
   const cwd = tmp(t);
-  writeFileSync(join(cwd, '.ltt.json'), JSON.stringify({ workspace: WS, agent: 'lead' }));
-  const cli = (...args) => spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: 'utf8', env: { ...process.env, LTT_HOME: d.home, LTT_PORT: String(d.port) } });
+  writeFileSync(join(cwd, '.cotalk.json'), JSON.stringify({ workspace: WS, agent: 'lead' }));
+  const cli = (...args) => spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: 'utf8', env: { ...process.env, COTALK_HOME: d.home, COTALK_PORT: String(d.port) } });
   const m = mcp(d.base, d.token);
-  await m.call('ltt_register', { workspace: WS, agent: 'physics' });
+  await m.call('cotalk_register', { workspace: WS, agent: 'physics' });
 
   let r = cli('ask', 'physics', 'Which', 'integrator?', '--body', 'RK4 or Verlet');
   assert.equal(r.status, 0, r.stderr);
   const qid = Number(r.stdout.match(/^#(\d+) sent to physics$/m)?.[1]);
-  const got = (await m.call('ltt_requests', { workspace: WS, agent: 'physics', id: qid })).data.request;
+  const got = (await m.call('cotalk_requests', { workspace: WS, agent: 'physics', id: qid })).data.request;
   assert.deepEqual([got.from, got.kind, got.title, got.body], ['user', 'question', 'Which integrator?', 'RK4 or Verlet']);
   r = cli('task', 'physics', 'Tune', 'damping');
   assert.equal(r.status, 0, r.stderr);
   const tid = Number(r.stdout.match(/^#(\d+) sent to physics$/m)?.[1]);
-  assert.equal((await m.call('ltt_requests', { workspace: WS, agent: 'physics', id: tid })).data.request.kind, 'task');
+  assert.equal((await m.call('cotalk_requests', { workspace: WS, agent: 'physics', id: tid })).data.request.kind, 'task');
   assert.equal(cli('ask', 'nobody', 'x').status, 1);
 
-  await m.call('ltt_respond', { workspace: WS, agent: 'physics', id: qid, action: 'answer', response: 'Verlet' });
-  const q2 = (await m.call('ltt_request', { workspace: WS, agent: 'physics', to: 'user', kind: 'question', title: 'Ship on Friday?', body: 'line1\nline2' })).data.request;
+  await m.call('cotalk_respond', { workspace: WS, agent: 'physics', id: qid, action: 'answer', response: 'Verlet' });
+  const q2 = (await m.call('cotalk_request', { workspace: WS, agent: 'physics', to: 'user', kind: 'question', title: 'Ship on Friday?', body: 'line1\nline2' })).data.request;
   r = cli('inbox');
   assert.equal(r.status, 0, r.stderr);
   assert.ok(r.stdout.includes(`Waiting on you:\n#${q2.id} question from physics: Ship on Friday?\n  line1\n`), r.stdout);
@@ -190,21 +190,21 @@ test('CLI: ask, task, inbox, reply, reject', async (t) => {
   r = cli('reply', String(q2.id));
   assert.equal(r.status, 1, 'reply needs text');
   assert.match(r.stderr, /usage/);
-  assert.equal((await m.call('ltt_requests', { workspace: WS, agent: 'physics', id: q2.id })).data.request.status, 'open');
+  assert.equal((await m.call('cotalk_requests', { workspace: WS, agent: 'physics', id: q2.id })).data.request.status, 'open');
 
   r = cli('reply', String(q2.id), 'yes,', 'ship', 'it');
   assert.equal(r.status, 0, r.stderr);
   assert.equal(r.stdout.trim(), `#${q2.id} answered`);
-  assert.equal((await m.call('ltt_requests', { workspace: WS, agent: 'physics', id: q2.id })).data.request.response, 'yes, ship it');
+  assert.equal((await m.call('cotalk_requests', { workspace: WS, agent: 'physics', id: q2.id })).data.request.response, 'yes, ship it');
 
-  const q3 = (await m.call('ltt_request', { workspace: WS, agent: 'physics', to: 'user', kind: 'question', title: 'Rewrite?' })).data.request;
+  const q3 = (await m.call('cotalk_request', { workspace: WS, agent: 'physics', to: 'user', kind: 'question', title: 'Rewrite?' })).data.request;
   r = cli('reply', String(q3.id), 'not', 'now', '--reject');
   assert.equal(r.stdout.trim(), `#${q3.id} rejected`, r.stderr);
   const again = cli('reply', String(q3.id), 'again');
   assert.equal(again.status, 1);
   assert.match(again.stderr, /invalid_transition/);
   assert.equal(cli('reply').status, 1, 'usage');
-  const q4 = (await m.call('ltt_request', { workspace: WS, agent: 'physics', to: 'user', kind: 'question', title: 'Skip?' })).data.request;
+  const q4 = (await m.call('cotalk_request', { workspace: WS, agent: 'physics', to: 'user', kind: 'question', title: 'Skip?' })).data.request;
   assert.equal(cli('reply', String(q4.id), '--reject').stdout.trim(), `#${q4.id} rejected`, '--reject needs no text');
 
   r = cli('inbox', '--workspace', WS);
@@ -214,9 +214,9 @@ test('CLI: ask, task, inbox, reply, reject', async (t) => {
 test('CLI: no workspace exits 1', (t) => {
   const cwd = tmp(t), home = tmp(t);
   for (const args of [['inbox'], ['ask', 'physics', 'x']]) {
-    const r = spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: 'utf8', env: { ...process.env, LTT_HOME: home, LTT_PORT: '1' } });
+    const r = spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: 'utf8', env: { ...process.env, COTALK_HOME: home, COTALK_PORT: '1' } });
     assert.equal(r.status, 1);
-    assert.match(r.stderr, /no workspace: pass --workspace or run inside a folder with \.ltt\.json/);
+    assert.match(r.stderr, /no workspace: pass --workspace or run inside a folder with \.cotalk\.json/);
   }
 });
 
@@ -226,7 +226,7 @@ test('dashboard: answer box posts to /api/respond without token in URL or header
   ).join('\n');
   assert.match(files, /\/api\/respond/);
   assert.match(files, /textarea/);
-  assert.doesNotMatch(files, /x-ltt-token/i);
+  assert.doesNotMatch(files, /x-cotalk-token/i);
   assert.doesNotMatch(files, /[?&]token=/i);
   assert.doesNotMatch(files, /innerHTML|outerHTML|insertAdjacentHTML|document\.write|DOMParser|srcdoc/);
 });

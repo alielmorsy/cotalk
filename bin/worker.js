@@ -1,4 +1,4 @@
-// ltt worker: a headless agy (stream-json) kept alive as a worker; peers' tasks/questions are pushed in as new turns.
+// cotalk worker: a headless agy (stream-json) kept alive as a worker; peers' tasks/questions are pushed in as new turns.
 import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, appendFileSync, mkdirSync, openSync, closeSync, writeFileSync, unlinkSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -6,10 +6,10 @@ import os from 'node:os';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { findConfig, api, ensureDaemon, home, base, readToken, POLL_S } from '../lib/client.js';
-import { describeEvents, URGENT_TYPES, LTT_ON_PATH } from '../lib/format.js';
+import { describeEvents, URGENT_TYPES, COTALK_ON_PATH } from '../lib/format.js';
 
 const NAME = /^[a-z0-9][a-z0-9_-]{0,31}$/i;
-const LTT = fileURLToPath(new URL('./ltt.js', import.meta.url));
+const COTALK = fileURLToPath(new URL('./cotalk.js', import.meta.url));
 
 export function parseArgs(rawArgs) {
   const dash = rawArgs.indexOf('--');
@@ -42,27 +42,27 @@ const ASK_SENDER = 'Never send requests to "user", even when a task says to. Sen
   + '(its `from`); start the title with "[user] " when only the human can answer. That agent asks the human and answers you. ';
 const ASK_USER = 'Send every question (decisions, approvals, design) to "user", the human, never to "lead"; ask a peer only about code that peer owns. ';
 const ASK_CHAT = 'The human is watching this chat: ask them every question (decisions, approvals, design) here directly, '
-  + 'never with ltt_request to "user" or "lead"; ask a peer only about code that peer owns. ';
+  + 'never with cotalk_request to "user" or "lead"; ask a peer only about code that peer owns. ';
 
 export const bootstrapPrompt = ({ workspace, name, role, ask }) =>
-  `You are let-them-talk worker "${name}"${role ? ` (role: ${role})` : ''} in workspace "${workspace}". ` +
-  `Pass workspace "${workspace}" and agent "${name}" on every ltt_* tool call. Follow the using-let-them-talk skill. ${LTT_ON_PATH} ` +
-  'Call ltt_inbox now and handle what is addressed to you: claim a task, do it, then ltt_respond done with a summary. ' +
+  `You are cotalk worker "${name}"${role ? ` (role: ${role})` : ''} in workspace "${workspace}". ` +
+  `Pass workspace "${workspace}" and agent "${name}" on every cotalk_* tool call. Follow the using-cotalk skill. ${COTALK_ON_PATH} ` +
+  'Call cotalk_inbox now and handle what is addressed to you: claim a task, do it, then cotalk_respond done with a summary. ' +
   (ask ? ASK_SENDER : ASK_USER) + 'If there is nothing for you, reply "ready".';
 
-// --chat: a normal interactive agy (nobody pushes to it), so it parks on a background `ltt wait` and its exit wakes it
+// --chat: a normal interactive agy (nobody pushes to it), so it parks on a background `cotalk wait` and its exit wakes it
 export const chatArgs = ({ workspace, name, role, ask, yolo, extra = [] }) => ['-i',
-  `You are let-them-talk agent "${name}"${role ? ` (role: ${role})` : ''} in workspace "${workspace}". ` +
-  `Pass workspace "${workspace}" and agent "${name}" on every ltt_* tool call. Follow the using-let-them-talk skill. ${LTT_ON_PATH} ` +
-  'Call ltt_inbox now and handle what is addressed to you: claim a task, do it, then ltt_respond done with a summary. ' +
-  (ask ? ASK_SENDER : ASK_CHAT) + 'When you have no task, run `ltt wait` as a BACKGROUND task (not foreground, not ltt_wait) ' +
-  'and end your turn; when it finishes you are woken, so handle the task the same way and start `ltt wait` in the background again.',
+  `You are cotalk agent "${name}"${role ? ` (role: ${role})` : ''} in workspace "${workspace}". ` +
+  `Pass workspace "${workspace}" and agent "${name}" on every cotalk_* tool call. Follow the using-cotalk skill. ${COTALK_ON_PATH} ` +
+  'Call cotalk_inbox now and handle what is addressed to you: claim a task, do it, then cotalk_respond done with a summary. ' +
+  (ask ? ASK_SENDER : ASK_CHAT) + 'When you have no task, run `cotalk wait` as a BACKGROUND task (not foreground, not cotalk_wait) ' +
+  'and end your turn; when it finishes you are woken, so handle the task the same way and start `cotalk wait` in the background again.',
   ...(yolo ? ['--dangerously-skip-permissions'] : []), ...extra];
 
 export const pushPrompt = (events, ask) =>
-  `let-them-talk: new for you:\n${describeEvents(events, 10)}\nCall ltt_inbox and handle them (claim → do → done with a summary). `
+  `cotalk: new for you:\n${describeEvents(events, 10)}\nCall cotalk_inbox and handle them (claim → do → done with a summary). `
   + (ask ? 'Questions go to the task\'s sender ("[user] " title when only the human can answer). ' : 'Questions go to "user", not "lead". ')
-  + LTT_ON_PATH;
+  + COTALK_ON_PATH;
 
 const errText = (e) => (typeof e === 'string' ? e : e?.message ?? JSON.stringify(e));
 
@@ -88,34 +88,34 @@ export function render(ev) {
 export async function main(cmd, rawArgs) {
   const o = parseArgs(rawArgs);
   if (!NAME.test(o.name ?? '') || o.name.toLowerCase() === 'user')
-    throw new Error(`usage: ltt worker <name> [--role R] [--owns "a/**"] [--workspace W] [--ask] [--yolo] [--detach] [--chat] [-- <agy args...>] (<name> must match ${NAME} and not be "user")`);
+    throw new Error(`usage: cotalk worker <name> [--role R] [--owns "a/**"] [--workspace W] [--ask] [--yolo] [--detach] [--chat] [-- <agy args...>] (<name> must match ${NAME} and not be "user")`);
   const { name } = o;
   // started from a Claude session's shell (CLAUDECODE=1): that session asks the human; started by the human: never
   if (process.env.CLAUDECODE === '1') o.ask = true;
-  const found = findConfig(process.cwd(), { LTT_AGENT: name });
+  const found = findConfig(process.cwd(), { COTALK_AGENT: name });
   const workspace = o.workspace ?? found?.config.workspace;
-  if (!NAME.test(workspace ?? '')) throw new Error('no workspace: pass --workspace or run inside a folder with .ltt.json');
+  if (!NAME.test(workspace ?? '')) throw new Error('no workspace: pass --workspace or run inside a folder with .cotalk.json');
   const mine = found?.config.agent === name; // pre-roster findConfig returns the file's own agent
   const role = o.role ?? (mine ? found.config.role : undefined) ?? '';
   const owns = o.owns ?? (mine ? found.config.owns : undefined) ?? [];
 
-  const mcpPath = process.env.LTT_AGY_MCP_CONFIG || join(os.homedir(), '.gemini', 'config', 'mcp_config.json');
+  const mcpPath = process.env.COTALK_AGY_MCP_CONFIG || join(os.homedir(), '.gemini', 'config', 'mcp_config.json');
   let servers = null;
   try { servers = JSON.parse(readFileSync(mcpPath, 'utf8')).mcpServers; } catch {}
-  if (!servers?.['let-them-talk']) throw new Error(`agy has no let-them-talk MCP server (${mcpPath}): run \`ltt agy-mcp\` first`);
+  if (!servers?.['cotalk']) throw new Error(`agy has no cotalk MCP server (${mcpPath}): run \`cotalk agy-mcp\` first`);
 
   if (!(await ensureDaemon())) throw new Error(`daemon failed to start (see ${join(home(), 'daemon.log')})`);
   if (o.chat && o.detach) throw new Error('--chat needs your terminal: it cannot be combined with --detach');
   await api('POST', '/api/register', { body: { workspace, agent: name, role, owns, cwd: process.cwd(), tool: o.chat ? 'agy' : 'agy-worker', session_id: '' } });
 
   if (o.chat) { // interactive agy owns the console; the runner just gives it identity and a first prompt
-    const bin = process.env.LTT_AGY_BIN || 'agy';
-    const env = { ...process.env, LTT_AGENT: name, LTT_ROLE: role, LTT_OWNS: owns.join(','), LTT_TOOL: 'agy' };
-    delete env.LTT_WORKER;
+    const bin = process.env.COTALK_AGY_BIN || 'agy';
+    const env = { ...process.env, COTALK_AGENT: name, COTALK_ROLE: role, COTALK_OWNS: owns.join(','), COTALK_TOOL: 'agy' };
+    delete env.COTALK_WORKER;
     for (const s of ['SIGINT', 'SIGTERM']) process.on(s, () => {}); // Ctrl+C belongs to the child
     const args = chatArgs({ workspace, name, role, ask: o.ask, yolo: o.yolo, extra: o.extra });
     const r = bin.endsWith('.js') ? spawnSync(process.execPath, [bin, ...args], { stdio: 'inherit', env }) : spawnSync(bin, args, { stdio: 'inherit', env });
-    if (r.error) throw new Error(r.error.code === 'ENOENT' ? `agy not found (${bin}); put agy on PATH or set LTT_AGY_BIN to its path` : r.error.message);
+    if (r.error) throw new Error(r.error.code === 'ENOENT' ? `agy not found (${bin}); put agy on PATH or set COTALK_AGY_BIN to its path` : r.error.message);
     process.exitCode = r.status ?? 1;
     return;
   }
@@ -129,15 +129,15 @@ export async function main(cmd, rawArgs) {
     const dash = rawArgs.indexOf('--');
     const args = rawArgs.filter((a, i) => !(a === '--detach' && (dash < 0 || i < dash)));
     const fd = openSync(logPath, 'a');
-    const child = spawn(process.execPath, [LTT, 'worker', ...args], {
-      detached: true, stdio: ['ignore', fd, fd], windowsHide: true, env: { ...process.env, LTT_WORKER_DETACHED: '1' },
+    const child = spawn(process.execPath, [COTALK, 'worker', ...args], {
+      detached: true, stdio: ['ignore', fd, fd], windowsHide: true, env: { ...process.env, COTALK_WORKER_DETACHED: '1' },
     });
     closeSync(fd);
     child.unref();
     console.log(`worker ${name} started (pid ${child.pid}), log: ${logPath}`);
     return;
   }
-  const detached = process.env.LTT_WORKER_DETACHED === '1'; // stdout already is the log; no stdin
+  const detached = process.env.COTALK_WORKER_DETACHED === '1'; // stdout already is the log; no stdin
   const pidPath = join(logDir, `${workspace}.${name}.json`);
   const stopPath = join(logDir, `${workspace}.${name}.stop`);
   try { unlinkSync(stopPath); } catch {}
@@ -182,9 +182,9 @@ export async function main(cmd, rawArgs) {
     }
   };
 
-  const bin = process.env.LTT_AGY_BIN || 'agy';
-  const env = { ...process.env, LTT_AGENT: name, LTT_ROLE: role, LTT_OWNS: owns.join(','), LTT_WORKER: '1', LTT_TOOL: 'agy' };
-  delete env.LTT_WORKER_DETACHED;
+  const bin = process.env.COTALK_AGY_BIN || 'agy';
+  const env = { ...process.env, COTALK_AGENT: name, COTALK_ROLE: role, COTALK_OWNS: owns.join(','), COTALK_WORKER: '1', COTALK_TOOL: 'agy' };
+  delete env.COTALK_WORKER_DETACHED;
   const opts = { cwd: process.cwd(), env, stdio: 'pipe', windowsHide: true };
   const agy = bin.endsWith('.js') ? spawn(process.execPath, [bin, ...agyArgs(o)], opts) : spawn(bin, agyArgs(o), opts);
   const closed = new Promise(resolve => {
@@ -192,7 +192,7 @@ export async function main(cmd, rawArgs) {
     agy.on('exit', (code) => resolve(code));
     agy.on('close', (code) => resolve(code));
     agy.on('error', (e) => {
-      print(e.code === 'ENOENT' ? `agy not found (${bin}); put agy on PATH or set LTT_AGY_BIN to its path` : `⚠ ${e.message}`);
+      print(e.code === 'ENOENT' ? `agy not found (${bin}); put agy on PATH or set COTALK_AGY_BIN to its path` : `⚠ ${e.message}`);
       resolve(1);
     });
   });
@@ -238,7 +238,7 @@ export async function main(cmd, rawArgs) {
     const url = new URL('/api/wait', base());
     url.search = new URLSearchParams({ workspace, agent: name, timeout: POLL_S, holder: `worker:${workspace}/${name}`, urgent: 1 });
     const res = await fetch(url, {
-      headers: { 'x-ltt-token': readToken() || '' },
+      headers: { 'x-cotalk-token': readToken() || '' },
       signal: AbortSignal.any([ac.signal, AbortSignal.timeout((POLL_S + 10) * 1000)]),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

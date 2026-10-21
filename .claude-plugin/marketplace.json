@@ -1,8 +1,8 @@
 {
-  "name": "let-them-talk-dev",
-  "description": "Local marketplace for let-them-talk",
+  "name": "cotalk",
+  "description": "Local marketplace for cotalk",
   "owner": { "name": "Ali Elmorsy" },
   "plugins": [
-    { "name": "let-them-talk", "description": "Shared board, async questions and task hand-off between agent sessions.", "version": "0.1.5", "source": "./" }
+    { "name": "cotalk", "description": "Shared board, async questions and task hand-off between agent sessions.", "version": "0.1.5", "source": "./" }
   ]
 }

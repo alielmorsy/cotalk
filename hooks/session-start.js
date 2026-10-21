@@ -9,11 +9,11 @@ try {
   });
   const found = findConfig(input.cwd || process.cwd(), process.env, 'claude');
   if (!found) {
-    emit('let-them-talk: this folder has no .ltt.json, so this session is not on the shared board. If the user wants it to coordinate with other sessions, use the ltt-setup skill.');
+    emit('cotalk: this folder has no .cotalk.json, so this session is not on the shared board. If the user wants it to coordinate with other sessions, use the cotalk-setup skill.');
   } else if (!found.config.agent) {
     emit(noRoleText(found.config.roles));
   } else if (!(await ensureDaemon())) {
-    emit('let-them-talk: daemon unreachable, board unavailable this session (try `ltt start`).');
+    emit('cotalk: daemon unreachable, board unavailable this session (try `cotalk start`).');
   } else {
     const { workspace, agent, role = '', owns = [] } = found.config;
     const r = await api('POST', '/api/register', {

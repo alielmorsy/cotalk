@@ -130,9 +130,9 @@ export function renderSettings(wsData, onRefresh) {
     )
   );
 
-  // 2. Agent Roster Editor (.ltt.json)
+  // 2. Agent Roster Editor (.cotalk.json)
   const rosterCard = el('div', { class: 'settings-card mt-6' },
-    el('h3', { class: 'settings-card-title' }, 'Agent Roster (.ltt.json)'),
+    el('h3', { class: 'settings-card-title' }, 'Agent Roster (.cotalk.json)'),
     el('p', { class: 'settings-card-desc' }, 'View and edit the team roster definition for this workspace.')
   );
 
@@ -208,7 +208,7 @@ export function renderSettings(wsData, onRefresh) {
 
     rosterContent.replaceChildren(
       cwdSelector,
-      el('div', { class: 'mb-2 text-xs muted mono' }, `File: ${rosterPath || '.ltt.json'}`),
+      el('div', { class: 'mb-2 text-xs muted mono' }, `File: ${rosterPath || '.cotalk.json'}`),
       el('div', { class: 'form-group' },
         el('label', { class: 'form-label' }, 'Roster JSON Definition:'),
         textarea
@@ -232,7 +232,7 @@ export function renderSettings(wsData, onRefresh) {
         cwd: rosterCwd || undefined,
       });
 
-      rosterPath = data.path || '.ltt.json';
+      rosterPath = data.path || '.cotalk.json';
       rosterText = JSON.stringify(data.agents || [], null, 2);
       rosterLoaded = true;
       renderRosterForm();
@@ -251,7 +251,7 @@ export function renderSettings(wsData, onRefresh) {
     fetchRosterData();
   }
 
-  // 3. Daemon Runtime Settings (~/.let-them-talk/config.json)
+  // 3. Daemon Runtime Settings (~/.cotalk/config.json)
   const daemonCard = el('div', { class: 'settings-card mt-6' },
     el('h3', { class: 'settings-card-title' }, 'Daemon Runtime Settings'),
     el('p', { class: 'settings-card-desc' }, 'Configure agent activity thresholds and event retention rules.')

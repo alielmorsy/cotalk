@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 export const DAEMON = fileURLToPath(new URL('../daemon/index.js', import.meta.url));
 
 export function tmpHome(t) {
-  const d = mkdtempSync(join(tmpdir(), 'ltt-test-'));
+  const d = mkdtempSync(join(tmpdir(), 'cotalk-test-'));
   t.after(() => { try { rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} }); // Windows: a live daemon may still hold the db
   return d;
 }
@@ -25,7 +25,7 @@ export async function startDaemon(t, { home, port } = {}) {
   home ??= tmpHome(t);
   port ??= await freePort();
   const child = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', DAEMON], {
-    env: { ...process.env, LTT_HOME: home, LTT_PORT: String(port) }, stdio: 'ignore',
+    env: { ...process.env, COTALK_HOME: home, COTALK_PORT: String(port) }, stdio: 'ignore',
   });
   const base = `http://127.0.0.1:${port}`;
   const stop = () => new Promise(r => {
@@ -53,7 +53,7 @@ export function mcp(base, token) {
   const rpc = async (method, params) => {
     const r = await fetch(`${base}/mcp`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'x-ltt-token': token },
+      headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'x-cotalk-token': token },
       body: JSON.stringify({ jsonrpc: '2.0', id: ++id, method, params }),
     });
     return r.json();

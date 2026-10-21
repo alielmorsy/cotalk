@@ -13,7 +13,7 @@ if (args.includes('--version')) {
 
 if (args[0] === 'plugin') {
   if (args[1] === 'list') {
-    console.log(process.env.FAKE_TOOL_PLUGINS || 'Installed plugins:\n  ❯ let-them-talk@let-them-talk-dev\n');
+    console.log(process.env.FAKE_TOOL_PLUGINS || 'Installed plugins:\n  ❯ cotalk@cotalk\n');
     process.exit(0);
   }
   if (args[1] === 'marketplace' || args[1] === 'install') {
@@ -27,7 +27,7 @@ if (args[0] === 'plugin') {
 
 if (args[0] === 'mcp') {
   if (args[1] === 'list') {
-    console.log(process.env.FAKE_MCP_LIST ?? 'let-them-talk  http  enabled  http://127.0.0.1:7777/mcp');
+    console.log(process.env.FAKE_MCP_LIST ?? 'cotalk  http  enabled  http://127.0.0.1:7878/mcp');
     process.exit(0);
   }
   if (args[1] === 'add') {

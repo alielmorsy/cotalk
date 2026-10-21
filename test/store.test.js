@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { openStore, LttError, isRelevant } from '../daemon/store.js';
+import { openStore, CotalkError, isRelevant } from '../daemon/store.js';
 
 function setup() {
   let t = 1_000_000;
@@ -11,7 +11,7 @@ function setup() {
   return { store, clock };
 }
 
-const code = (fn) => { try { fn(); } catch (e) { assert.ok(e instanceof LttError); return e.code; } assert.fail('expected LttError'); };
+const code = (fn) => { try { fn(); } catch (e) { assert.ok(e instanceof CotalkError); return e.code; } assert.fail('expected CotalkError'); };
 
 test('register + peers + status', () => {
   const { store, clock } = setup();
@@ -161,9 +161,9 @@ test('persists across reopen', async (t) => {
   const { mkdtempSync, rmSync } = await import('node:fs');
   const { join } = await import('node:path');
   const { tmpdir } = await import('node:os');
-  const dir = mkdtempSync(join(tmpdir(), 'ltt-store-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cotalk-store-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const path = join(dir, 'ltt.db');
+  const path = join(dir, 'cotalk.db');
   const s1 = openStore(path);
   s1.register({ workspace: 'shop', agent: 'api' });
   s1.writeEntry({ workspace: 'shop', agent: 'api', key: 'api.k', kind: 'note', title: 'K', body: 'b' });

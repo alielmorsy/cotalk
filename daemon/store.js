@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { URGENT_TYPES, summarize } from '../lib/format.js';
 
-export class LttError extends Error {
+export class CotalkError extends Error {
   constructor(code, message) { super(message); this.code = code; }
 }
 
@@ -46,7 +46,7 @@ CREATE INDEX IF NOT EXISTS requests_ws_status_id ON requests (workspace, status,
 `;
 
 // ---- validation ----
-const invalid = (msg) => { throw new LttError('invalid', msg); };
+const invalid = (msg) => { throw new CotalkError('invalid', msg); };
 function name(v, field) {
   if (typeof v !== 'string' || !NAME.test(v)) invalid(`${field} must match ${NAME}`);
   return v;
@@ -173,10 +173,10 @@ export function openStore(dbPath, { now = Date.now } = {}) {
     return tx(() => {
       const seg = key.split('.')[0];
       if (seg !== agent && agentRow(workspace, seg))
-        throw new LttError('forbidden', `keys starting with "${seg}." belong to agent ${seg}`);
+        throw new CotalkError('forbidden', `keys starting with "${seg}." belong to agent ${seg}`);
       const old = q('SELECT * FROM entries WHERE workspace = ? AND key = ?').get(workspace, key);
       if (old && old.author !== agent)
-        throw new LttError('forbidden', `${key} is owned by ${old.author}`);
+        throw new CotalkError('forbidden', `${key} is owned by ${old.author}`);
       const version = old ? old.version + 1 : 1;
       q('INSERT OR REPLACE INTO entries (workspace, key, author, kind, title, body, version, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         .run(workspace, key, agent, kind, title, body, version, now());
@@ -206,7 +206,7 @@ export function openStore(dbPath, { now = Date.now } = {}) {
     if (to === agent) invalid('cannot send a request to yourself');
     if (to !== '*' && to !== USER) {
       name(to, 'to');
-      if (!agentRow(workspace, to)) throw new LttError('not_found', `no agent ${to} in workspace ${workspace}`);
+      if (!agentRow(workspace, to)) throw new CotalkError('not_found', `no agent ${to} in workspace ${workspace}`);
     }
     return tx(() => {
       const t = now();
@@ -231,7 +231,7 @@ export function openStore(dbPath, { now = Date.now } = {}) {
     response = text(response, 'response', MAX_BODY) ?? '';
     return tx(() => {
       const r = toRequest(requestRow(workspace, id));
-      if (!r) throw new LttError('not_found', `no request #${id}`);
+      if (!r) throw new CotalkError('not_found', `no request #${id}`);
       const mine = r.to === agent || (r.to === '*' && !isUser(agent)); // broadcasts are for agents
       const iClaimed = r.status === 'claimed' && r.claimed_by === agent;
       let set;
@@ -244,7 +244,7 @@ export function openStore(dbPath, { now = Date.now } = {}) {
       else if (action === 'reject' && ((r.status === 'open' && mine) || iClaimed))
         set = { status: 'rejected', claimed_by: r.claimed_by, response };
       else
-        throw new LttError('invalid_transition', `cannot ${action} #${id} (${r.kind}, ${r.status})`);
+        throw new CotalkError('invalid_transition', `cannot ${action} #${id} (${r.kind}, ${r.status})`);
       q('UPDATE requests SET status = ?, claimed_by = ?, response = ?, updated_at = ? WHERE id = ?')
         .run(set.status, set.claimed_by, set.response, now(), r.id);
       // a claim needs no action from the requester: not urgent, so it never blocks a stop or wakes a session
@@ -258,9 +258,9 @@ export function openStore(dbPath, { now = Date.now } = {}) {
     name(workspace, 'workspace');
     return tx(() => {
       const r = toRequest(requestRow(workspace, id));
-      if (!r) throw new LttError('not_found', `no request #${id}`);
+      if (!r) throw new CotalkError('not_found', `no request #${id}`);
       if (r.status !== 'open' && r.status !== 'claimed')
-        throw new LttError('invalid_transition', `cannot cancel #${id} (${r.kind}, ${r.status})`);
+        throw new CotalkError('invalid_transition', `cannot cancel #${id} (${r.kind}, ${r.status})`);
       q('UPDATE requests SET status = ?, updated_at = ? WHERE id = ?').run('cancelled', now(), r.id);
       emit(workspace, 'request.updated', USER, r.from, r.id, `${USER} cancelled #${r.id}: ${r.title}`);
       if (r.claimed_by && r.claimed_by !== r.from) {
@@ -313,7 +313,7 @@ export function openStore(dbPath, { now = Date.now } = {}) {
     if (typeof key !== 'string' || !KEY.test(key)) invalid(`key must match ${KEY}`);
     return tx(() => {
       const old = q('SELECT * FROM entries WHERE workspace = ? AND key = ?').get(workspace, key);
-      if (!old) throw new LttError('not_found', `no entry ${key}`);
+      if (!old) throw new CotalkError('not_found', `no entry ${key}`);
       q('DELETE FROM entries WHERE workspace = ? AND key = ?').run(workspace, key);
       emit(workspace, 'entry.updated', USER, null, key, `${USER} deleted ${key}`);
       return { ok: true, key };
@@ -402,14 +402,14 @@ export function openStore(dbPath, { now = Date.now } = {}) {
     if (isUser(to)) to = USER;
     if (to !== '*' && to !== USER) {
       name(to, 'to');
-      if (!agentRow(workspace, to)) throw new LttError('not_found', `no agent ${to} in workspace ${workspace}`);
+      if (!agentRow(workspace, to)) throw new CotalkError('not_found', `no agent ${to} in workspace ${workspace}`);
     }
     return tx(() => {
       const r = toRequest(requestRow(workspace, id));
-      if (!r) throw new LttError('not_found', `no request #${id}`);
+      if (!r) throw new CotalkError('not_found', `no request #${id}`);
       if (to === r.from) invalid('cannot send a request to yourself');
       if (r.status !== 'open' && r.status !== 'claimed') {
-        throw new LttError('invalid_transition', 'cannot reassign terminal request');
+        throw new CotalkError('invalid_transition', 'cannot reassign terminal request');
       }
       const oldTo = r.to;
       const oldClaimedBy = r.claimed_by;
@@ -436,10 +436,10 @@ export function openStore(dbPath, { now = Date.now } = {}) {
     name(workspace, 'workspace');
     name(agent, 'agent');
     const row = agentRow(workspace, agent);
-    if (!row) throw new LttError('not_found', `no agent ${agent} in workspace ${workspace}`);
+    if (!row) throw new CotalkError('not_found', `no agent ${agent} in workspace ${workspace}`);
     const st = statusOf(row.last_seen);
     if (st !== 'offline' && !force) {
-      throw new LttError('invalid', 'agent is currently active/idle; wait for offline or pass force=true');
+      throw new CotalkError('invalid', 'agent is currently active/idle; wait for offline or pass force=true');
     }
     return tx(() => {
       const claimedRows = q("SELECT * FROM requests WHERE workspace = ? AND status = 'claimed' AND claimed_by = ?").all(workspace, agent);

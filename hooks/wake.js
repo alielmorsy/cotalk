@@ -21,7 +21,7 @@ try {
       const n = await api('GET', '/api/unread', { query: { workspace, agent, mode: 'notify' } });
       const urgent = n.events.filter(e => URGENT_TYPES.includes(e.type));
       if (urgent.length) {
-        process.stderr.write(`let-them-talk: a peer needs you:\n${describeEvents(urgent, 10)}\nCall ltt_inbox and handle it.`);
+        process.stderr.write(`cotalk: a peer needs you:\n${describeEvents(urgent, 10)}\nCall cotalk_inbox and handle it.`);
         process.exitCode = 2;
         break;
       }

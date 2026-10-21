@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { timingSafeEqual } from 'node:crypto';
-import { LttError, isRelevant, USER } from './store.js';
+import { CotalkError, isRelevant, USER } from './store.js';
 const MAX_BODY = 1024 * 1024;
 const BAD_JSON = Symbol('bad json');
 const PUBLIC_DIR = fileURLToPath(new URL('./public', import.meta.url));
@@ -13,17 +13,17 @@ const DASHBOARD_HEADERS = {
   'referrer-policy': 'no-referrer',
   'x-content-type-options': 'nosniff',
 };
-const NOT_SIGNED_IN_HTML = '<!doctype html><html><body><p>Not signed in. Run `ltt dashboard` and open the link it prints.</p></body></html>\n';
+const NOT_SIGNED_IN_HTML = '<!doctype html><html><body><p>Not signed in. Run `cotalk dashboard` and open the link it prints.</p></body></html>\n';
 const STATIC_FILE_RE = /^(assets\/[a-zA-Z0-9_-]+|[a-z0-9-]+)\.(js|css)$/;
 
 function serveStaticFile(res, pathname, dir = PUBLIC_DIR) {
   const filename = pathname.slice('/dashboard/'.length);
   if (!STATIC_FILE_RE.test(filename)) {
-    throw new LttError('invalid', 'file name must match /^(assets\\/[a-zA-Z0-9_-]+|[a-z0-9-]+)\\.(js|css)$/');
+    throw new CotalkError('invalid', 'file name must match /^(assets\\/[a-zA-Z0-9_-]+|[a-z0-9-]+)\\.(js|css)$/');
   }
   const filePath = join(dir, filename);
   if (!existsSync(filePath)) {
-    throw new LttError('not_found', 'file not found');
+    throw new CotalkError('not_found', 'file not found');
   }
   const content = readFileSync(filePath);
   const contentType = filename.endsWith('.js')
@@ -93,7 +93,7 @@ export function createServer({
 
   const who = (url) => {
     const workspace = url.searchParams.get('workspace'), agent = url.searchParams.get('agent');
-    if (!workspace || !agent) throw new LttError('invalid', 'workspace and agent query params are required');
+    if (!workspace || !agent) throw new CotalkError('invalid', 'workspace and agent query params are required');
     store.touch(workspace, agent);
     return { workspace, agent };
   };
@@ -107,7 +107,7 @@ export function createServer({
   // JSON object body, or undefined when a response was already sent (413)
   async function objectBody(req, res) {
     const body = await jsonBody(req, res);
-    if (body !== undefined && (!body || typeof body !== 'object' || Array.isArray(body))) throw new LttError('invalid', 'body must be a JSON object');
+    if (body !== undefined && (!body || typeof body !== 'object' || Array.isArray(body))) throw new CotalkError('invalid', 'body must be a JSON object');
     return body;
   }
 
@@ -171,11 +171,11 @@ export function createServer({
       const body = await objectBody(req, res);
       if (body === undefined) return;
       const { workspace, id, response } = body;
-      if (!Number.isInteger(id)) throw new LttError('invalid', 'id must be an integer');
+      if (!Number.isInteger(id)) throw new CotalkError('invalid', 'id must be an integer');
       let { action } = body;
       if (action === undefined) {
         const r = store.getRequest(workspace, id);
-        if (!r) throw new LttError('not_found', `no request #${id}`);
+        if (!r) throw new CotalkError('not_found', `no request #${id}`);
         action = r.kind === 'question' ? 'answer' : 'done';
       }
       send(res, 200, { request: store.updateRequest({ workspace, agent: USER, id, action, response }) });
@@ -185,13 +185,13 @@ export function createServer({
       const body = await objectBody(req, res);
       if (body === undefined) return;
       const { workspace, id } = body;
-      if (!Number.isInteger(id)) throw new LttError('invalid', 'id must be an integer');
+      if (!Number.isInteger(id)) throw new CotalkError('invalid', 'id must be an integer');
       send(res, 200, { request: store.cancelRequest({ workspace, id }) });
     },
 
     'GET /api/requests'(req, res, url) {
       const workspace = url.searchParams.get('workspace'), agent = url.searchParams.get('agent');
-      if (!workspace || !agent) throw new LttError('invalid', 'workspace and agent query params are required');
+      if (!workspace || !agent) throw new CotalkError('invalid', 'workspace and agent query params are required');
       send(res, 200, { requests: store.listRequests(workspace, agent, url.searchParams.get('box') || 'incoming') });
     },
 
@@ -215,9 +215,9 @@ export function createServer({
 
     'GET /api/entry'(req, res, url) {
       const workspace = url.searchParams.get('workspace'), key = url.searchParams.get('key');
-      if (!workspace || !key) throw new LttError('invalid', 'workspace and key query params are required');
+      if (!workspace || !key) throw new CotalkError('invalid', 'workspace and key query params are required');
       const entry = store.readEntry(workspace, key);
-      if (!entry) throw new LttError('not_found', `no entry ${key}`);
+      if (!entry) throw new CotalkError('not_found', `no entry ${key}`);
       send(res, 200, { entry });
     },
 
@@ -230,7 +230,7 @@ export function createServer({
 
     'GET /api/requests/history'(req, res, url) {
       const workspace = url.searchParams.get('workspace');
-      if (!workspace) throw new LttError('invalid', 'workspace query param is required');
+      if (!workspace) throw new CotalkError('invalid', 'workspace query param is required');
       const status = url.searchParams.get('status') || undefined;
       const kind = url.searchParams.get('kind') || undefined;
       const from = url.searchParams.get('from') || undefined;
@@ -272,7 +272,7 @@ export function createServer({
 
     async 'GET /api/workers'(req, res, url) {
       const workspace = url.searchParams.get('workspace');
-      if (!workspace) throw new LttError('invalid', 'workspace query param is required');
+      if (!workspace) throw new CotalkError('invalid', 'workspace query param is required');
       const list = await workers.listWorkers({ workspace });
       send(res, 200, { workers: list });
     },
@@ -281,7 +281,7 @@ export function createServer({
       const body = await objectBody(req, res);
       if (body === undefined) return;
       const { workspace, name, role, owns, cwd, yolo } = body;
-      if (!workspace) throw new LttError('invalid', 'workspace is required');
+      if (!workspace) throw new CotalkError('invalid', 'workspace is required');
       const allowedDirs = getAllowedDirs(workspace);
       const worker = await workers.startWorker({ workspace, name, role, owns, cwd, yolo, allowedDirs });
       send(res, 200, { ok: true, worker });
@@ -291,14 +291,14 @@ export function createServer({
       const body = await objectBody(req, res);
       if (body === undefined) return;
       const { workspace, name, force } = body;
-      if (!workspace || !name) throw new LttError('invalid', 'workspace and name are required');
+      if (!workspace || !name) throw new CotalkError('invalid', 'workspace and name are required');
       const stopped = await workers.stopWorker({ workspace, name, force: force === true });
       send(res, 200, stopped);
     },
 
     async 'GET /api/workers/log'(req, res, url) {
       const workspace = url.searchParams.get('workspace'), name = url.searchParams.get('name');
-      if (!workspace || !name) throw new LttError('invalid', 'workspace and name query params are required');
+      if (!workspace || !name) throw new CotalkError('invalid', 'workspace and name query params are required');
       const linesParam = url.searchParams.get('lines');
       const lines = linesParam !== null ? Number(linesParam) : 100;
       const log = await workers.tailLog({ workspace, name, lines });
@@ -307,7 +307,7 @@ export function createServer({
 
     async 'GET /api/roster'(req, res, url) {
       const workspace = url.searchParams.get('workspace'), cwd = url.searchParams.get('cwd') || undefined;
-      if (!workspace) throw new LttError('invalid', 'workspace query param is required');
+      if (!workspace) throw new CotalkError('invalid', 'workspace query param is required');
       const allowedDirs = getAllowedDirs(workspace);
       const data = await roster.readRoster({ workspace, cwd, allowedDirs });
       send(res, 200, data);
@@ -317,7 +317,7 @@ export function createServer({
       const body = await objectBody(req, res);
       if (body === undefined) return;
       const { workspace, cwd, agents } = body;
-      if (!workspace) throw new LttError('invalid', 'workspace is required');
+      if (!workspace) throw new CotalkError('invalid', 'workspace is required');
       const allowedDirs = getAllowedDirs(workspace);
       const result = await roster.writeRoster({ workspace, cwd, agents, allowedDirs });
       send(res, 200, result);
@@ -332,7 +332,7 @@ export function createServer({
     async 'POST /api/settings'(req, res) {
       const body = await objectBody(req, res);
       if (body === undefined) return;
-      if (!body.settings || typeof body.settings !== 'object') throw new LttError('invalid', 'settings object is required');
+      if (!body.settings || typeof body.settings !== 'object') throw new CotalkError('invalid', 'settings object is required');
       const updated = await settings.writeSettings(body.settings);
       try {
         await applySettings(updated);
@@ -361,13 +361,13 @@ export function createServer({
     const url = new URL(req.url, 'http://127.0.0.1');
     try {
       if (req.method === 'GET' && url.pathname === '/health')
-        return send(res, 200, { ok: true, name: 'let-them-talk', version });
+        return send(res, 200, { ok: true, name: 'cotalk', version });
       if (req.headers.origin !== undefined && !allowedOrigins.includes(req.headers.origin))
         return send(res, 403, { error: 'forbidden origin' });
 
       // Reject path traversal attempting to escape /dashboard/
       if (req.url.startsWith('/dashboard/') && !url.pathname.startsWith('/dashboard/')) {
-        throw new LttError('invalid', 'file name must match /^(assets\\/[a-zA-Z0-9_-]+|[a-z0-9-]+)\\.(js|css)$/');
+        throw new CotalkError('invalid', 'file name must match /^(assets\\/[a-zA-Z0-9_-]+|[a-z0-9-]+)\\.(js|css)$/');
       }
 
       // Static dashboard assets require no token (A5, contract v3)
@@ -380,7 +380,7 @@ export function createServer({
         if (same(url.searchParams.get('token'), token)) {
           res.writeHead(302, {
             'location': '/',
-            'set-cookie': `ltt_token=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000`,
+            'set-cookie': `cotalk_token=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000`,
           });
           return res.end();
         }
@@ -388,8 +388,8 @@ export function createServer({
         return res.end(NOT_SIGNED_IN_HTML);
       }
 
-      const cookieToken = req.headers.cookie?.match(/(?:^|;\s*)ltt_token=([^;]+)/)?.[1];
-      const authenticated = same(req.headers['x-ltt-token'], token) || same(cookieToken, token);
+      const cookieToken = req.headers.cookie?.match(/(?:^|;\s*)cotalk_token=([^;]+)/)?.[1];
+      const authenticated = same(req.headers['x-cotalk-token'], token) || same(cookieToken, token);
       if (!authenticated) {
         if (req.method === 'GET' && url.pathname === '/') {
           res.writeHead(401, DASHBOARD_HEADERS);
@@ -403,7 +403,7 @@ export function createServer({
       await route(req, res, url);
     } catch (err) {
       if (res.headersSent) return res.destroy();
-      if (err instanceof LttError) send(res, 400, { error: `${err.code}: ${err.message}` });
+      if (err instanceof CotalkError) send(res, 400, { error: `${err.code}: ${err.message}` });
       else send(res, 500, { error: err.message });
     }
   });

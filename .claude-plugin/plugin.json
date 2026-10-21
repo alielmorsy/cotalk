@@ -1,5 +1,5 @@
 {
-  "name": "let-them-talk",
+  "name": "cotalk",
   "version": "0.1.5",
   "description": "Shared board, async questions and task hand-off between Claude Code and Antigravity sessions on one machine.",
   "author": { "name": "Ali Elmorsy" },

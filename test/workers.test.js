@@ -15,7 +15,7 @@ import {
   workerStopPath,
   checkAllowedDir,
 } from '../daemon/workers.js';
-import { LttError } from '../daemon/store.js';
+import { CotalkError } from '../daemon/store.js';
 
 test('workers: isProcessAlive correctly identifies current process and dead pids', () => {
   assert.equal(isProcessAlive(process.pid), true);
@@ -33,13 +33,13 @@ test('workers: file naming prevents collisions between (a-b, c) and (a, b-c)', (
 });
 
 test('workers: checkAllowedDir enforces non-empty array and exact directory matching', () => {
-  assert.throws(() => checkAllowedDir('C:/dir', []), (err) => err instanceof LttError && err.code === 'forbidden');
-  assert.throws(() => checkAllowedDir('C:/dir', null), (err) => err instanceof LttError && err.code === 'forbidden');
+  assert.throws(() => checkAllowedDir('C:/dir', []), (err) => err instanceof CotalkError && err.code === 'forbidden');
+  assert.throws(() => checkAllowedDir('C:/dir', null), (err) => err instanceof CotalkError && err.code === 'forbidden');
 
   // Prefix mismatch: C:/a should not match C:/ab
   assert.throws(
     () => checkAllowedDir('C:/ab', ['C:/a']),
-    (err) => err instanceof LttError && err.code === 'forbidden'
+    (err) => err instanceof CotalkError && err.code === 'forbidden'
   );
 
   // Exact match
@@ -47,13 +47,13 @@ test('workers: checkAllowedDir enforces non-empty array and exact directory matc
 });
 
 test('workers: listWorkers returns active workers and cleans up dead pid files', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'ltt-workers-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cotalk-workers-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const origHome = process.env.LTT_HOME;
-  process.env.LTT_HOME = dir;
+  const origHome = process.env.COTALK_HOME;
+  process.env.COTALK_HOME = dir;
   t.after(() => {
-    if (origHome) process.env.LTT_HOME = origHome;
-    else delete process.env.LTT_HOME;
+    if (origHome) process.env.COTALK_HOME = origHome;
+    else delete process.env.COTALK_HOME;
   });
 
   const wDir = join(dir, 'workers');
@@ -107,13 +107,13 @@ test('workers: listWorkers returns active workers and cleans up dead pid files',
 });
 
 test('workers: tailLog returns bounded lines, drops partial line when truncated', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'ltt-workers-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cotalk-workers-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const origHome = process.env.LTT_HOME;
-  process.env.LTT_HOME = dir;
+  const origHome = process.env.COTALK_HOME;
+  process.env.COTALK_HOME = dir;
   t.after(() => {
-    if (origHome) process.env.LTT_HOME = origHome;
-    else delete process.env.LTT_HOME;
+    if (origHome) process.env.COTALK_HOME = origHome;
+    else delete process.env.COTALK_HOME;
   });
 
   const wDir = join(dir, 'workers');
@@ -122,7 +122,7 @@ test('workers: tailLog returns bounded lines, drops partial line when truncated'
   // Missing log
   await assert.rejects(
     async () => tailLog({ workspace: 'ws', name: 'missing' }),
-    (err) => err instanceof LttError && err.code === 'not_found'
+    (err) => err instanceof CotalkError && err.code === 'not_found'
   );
 
   // Log with 5 lines
@@ -139,13 +139,13 @@ test('workers: tailLog returns bounded lines, drops partial line when truncated'
 });
 
 test('workers: stopWorker stops running worker gracefully via .stop and unlinks pid file', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'ltt-workers-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cotalk-workers-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const origHome = process.env.LTT_HOME;
-  process.env.LTT_HOME = dir;
+  const origHome = process.env.COTALK_HOME;
+  process.env.COTALK_HOME = dir;
   t.after(() => {
-    if (origHome) process.env.LTT_HOME = origHome;
-    else delete process.env.LTT_HOME;
+    if (origHome) process.env.COTALK_HOME = origHome;
+    else delete process.env.COTALK_HOME;
   });
 
   const wDir = join(dir, 'workers');
@@ -154,7 +154,7 @@ test('workers: stopWorker stops running worker gracefully via .stop and unlinks 
   // Non-existent worker -> not_found
   await assert.rejects(
     async () => stopWorker({ workspace: 'ws', name: 'none' }),
-    (err) => err instanceof LttError && err.code === 'not_found'
+    (err) => err instanceof CotalkError && err.code === 'not_found'
   );
 
   // Stale worker (dead pid)
@@ -198,13 +198,13 @@ test('workers: stopWorker stops running worker gracefully via .stop and unlinks 
 });
 
 test('workers: stopWorker uses force when requested or after timeout', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'ltt-workers-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cotalk-workers-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const origHome = process.env.LTT_HOME;
-  process.env.LTT_HOME = dir;
+  const origHome = process.env.COTALK_HOME;
+  process.env.COTALK_HOME = dir;
   t.after(() => {
-    if (origHome) process.env.LTT_HOME = origHome;
-    else delete process.env.LTT_HOME;
+    if (origHome) process.env.COTALK_HOME = origHome;
+    else delete process.env.COTALK_HOME;
   });
 
   const wDir = join(dir, 'workers');
@@ -229,35 +229,35 @@ test('workers: stopWorker uses force when requested or after timeout', async (t)
 });
 
 test('workers: startWorker validates inputs and checks permissions/conflicts', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'ltt-workers-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cotalk-workers-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const origHome = process.env.LTT_HOME;
-  process.env.LTT_HOME = dir;
+  const origHome = process.env.COTALK_HOME;
+  process.env.COTALK_HOME = dir;
   t.after(() => {
-    if (origHome) process.env.LTT_HOME = origHome;
-    else delete process.env.LTT_HOME;
+    if (origHome) process.env.COTALK_HOME = origHome;
+    else delete process.env.COTALK_HOME;
   });
 
   // Invalid names / user
   await assert.rejects(
     async () => startWorker({ workspace: 'ws', name: 'user', cwd: dir, allowedDirs: [dir] }),
-    (err) => err instanceof LttError && err.code === 'invalid'
+    (err) => err instanceof CotalkError && err.code === 'invalid'
   );
   await assert.rejects(
     async () => startWorker({ workspace: 'ws', name: 'bad name!', cwd: dir, allowedDirs: [dir] }),
-    (err) => err instanceof LttError && err.code === 'invalid'
+    (err) => err instanceof CotalkError && err.code === 'invalid'
   );
 
   // Empty allowedDirs -> forbidden
   await assert.rejects(
     async () => startWorker({ workspace: 'ws', name: 'w1', cwd: dir, allowedDirs: [] }),
-    (err) => err instanceof LttError && err.code === 'forbidden'
+    (err) => err instanceof CotalkError && err.code === 'forbidden'
   );
 
   // Unauthorized cwd
   await assert.rejects(
     async () => startWorker({ workspace: 'ws', name: 'w1', cwd: dir, allowedDirs: ['C:/other/dir'] }),
-    (err) => err instanceof LttError && err.code === 'forbidden'
+    (err) => err instanceof CotalkError && err.code === 'forbidden'
   );
 
   // Conflict with running worker
@@ -267,18 +267,18 @@ test('workers: startWorker validates inputs and checks permissions/conflicts', a
 
   await assert.rejects(
     async () => startWorker({ workspace: 'ws', name: 'w1', cwd: dir, allowedDirs: [dir] }),
-    (err) => err instanceof LttError && err.code === 'conflict'
+    (err) => err instanceof CotalkError && err.code === 'conflict'
   );
 });
 
 test('workers: stopWorker rejects when pid file workspace or name does not match', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'ltt-workers-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cotalk-workers-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const origHome = process.env.LTT_HOME;
-  process.env.LTT_HOME = dir;
+  const origHome = process.env.COTALK_HOME;
+  process.env.COTALK_HOME = dir;
   t.after(() => {
-    if (origHome) process.env.LTT_HOME = origHome;
-    else delete process.env.LTT_HOME;
+    if (origHome) process.env.COTALK_HOME = origHome;
+    else delete process.env.COTALK_HOME;
   });
 
   const wDir = join(dir, 'workers');
@@ -289,6 +289,6 @@ test('workers: stopWorker rejects when pid file workspace or name does not match
 
   await assert.rejects(
     async () => stopWorker({ workspace: 'ws', name: 'w1' }),
-    (err) => err instanceof LttError && err.code === 'invalid' && err.message.includes('pid file does not match')
+    (err) => err instanceof CotalkError && err.code === 'invalid' && err.message.includes('pid file does not match')
   );
 });

@@ -7,11 +7,11 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { startDaemon } from './helpers.js';
 
-const CLI = fileURLToPath(new URL('../bin/ltt.js', import.meta.url));
+const CLI = fileURLToPath(new URL('../bin/cotalk.js', import.meta.url));
 const FAKE_TOOL = fileURLToPath(new URL('./fixtures/fake-tool.js', import.meta.url));
 
 function tmp(t) {
-  const d = mkdtempSync(join(tmpdir(), 'ltt-setup-test-'));
+  const d = mkdtempSync(join(tmpdir(), 'cotalk-setup-test-'));
   t.after(() => rmSync(d, { recursive: true, force: true }));
   return d;
 }
@@ -23,21 +23,21 @@ test('setup --dry-run prints plan and runs nothing', (t) => {
 
   const env = {
     ...process.env,
-    LTT_HOME: home,
-    LTT_PORT: '1',
-    LTT_CLAUDE_BIN: FAKE_TOOL,
-    LTT_AGY_BIN: FAKE_TOOL,
-    LTT_CODEX_BIN: FAKE_TOOL,
+    COTALK_HOME: home,
+    COTALK_PORT: '1',
+    COTALK_CLAUDE_BIN: FAKE_TOOL,
+    COTALK_AGY_BIN: FAKE_TOOL,
+    COTALK_CODEX_BIN: FAKE_TOOL,
     FAKE_TOOL_LOG: logFile,
   };
 
   const r = spawnSync(process.execPath, [CLI, 'setup', '--dry-run'], { cwd: dir, encoding: 'utf8', env });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /claude:\s+claude plugin marketplace add/);
-  assert.match(r.stdout, /claude plugin install let-them-talk@/);
+  assert.match(r.stdout, /claude plugin install cotalk@/);
   assert.match(r.stdout, /agy:\s+agy plugin install/);
-  assert.match(r.stdout, /ltt agy-mcp/);
-  assert.match(r.stdout, /codex:\s+ltt codex-mcp/);
+  assert.match(r.stdout, /cotalk agy-mcp/);
+  assert.match(r.stdout, /codex:\s+cotalk codex-mcp/);
   // nothing was run (except --version probe)
   if (existsSync(logFile)) {
     const lines = readFileSync(logFile, 'utf8').trim().split('\n').map(JSON.parse);
@@ -51,18 +51,18 @@ test('setup --dry-run respects --only and --statusline and reports skipped tools
 
   const env = {
     ...process.env,
-    LTT_HOME: home,
-    LTT_PORT: '1',
-    LTT_AGY_BIN: FAKE_TOOL,
-    LTT_CLAUDE_BIN: join(dir, 'no-such-claude.exe'),
-    LTT_CODEX_BIN: join(dir, 'no-such-codex.exe'),
+    COTALK_HOME: home,
+    COTALK_PORT: '1',
+    COTALK_AGY_BIN: FAKE_TOOL,
+    COTALK_CLAUDE_BIN: join(dir, 'no-such-claude.exe'),
+    COTALK_CODEX_BIN: join(dir, 'no-such-codex.exe'),
   };
 
   const r = spawnSync(process.execPath, [CLI, 'setup', '--dry-run', '--only', 'agy,claude', '--statusline'], { cwd: dir, encoding: 'utf8', env });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /claude: skipped \(not found\)/);
   assert.match(r.stdout, /agy:\s+agy plugin install/);
-  assert.match(r.stdout, /ltt statusline agy/);
+  assert.match(r.stdout, /cotalk statusline agy/);
   assert.doesNotMatch(r.stdout, /codex/, '--only codex was excluded');
 });
 
@@ -77,12 +77,12 @@ test('setup executes detected tools, starts daemon, reports ok and dashboard url
 
   const env = {
     ...process.env,
-    LTT_HOME: d.home,
-    LTT_PORT: String(d.port),
-    LTT_CLAUDE_BIN: FAKE_TOOL,
-    LTT_AGY_BIN: FAKE_TOOL,
-    LTT_CODEX_BIN: FAKE_TOOL,
-    LTT_CODEX_CONFIG: codexConfig,
+    COTALK_HOME: d.home,
+    COTALK_PORT: String(d.port),
+    COTALK_CLAUDE_BIN: FAKE_TOOL,
+    COTALK_AGY_BIN: FAKE_TOOL,
+    COTALK_CODEX_BIN: FAKE_TOOL,
+    COTALK_CODEX_CONFIG: codexConfig,
     FAKE_TOOL_LOG: logFile,
   };
 
@@ -96,9 +96,9 @@ test('setup executes detected tools, starts daemon, reports ok and dashboard url
 
   // verify codex config and agy settings got written
   assert.ok(existsSync(codexConfig));
-  assert.match(readFileSync(codexConfig, 'utf8'), /\[mcp_servers\.let-them-talk\]/);
+  assert.match(readFileSync(codexConfig, 'utf8'), /\[mcp_servers\.cotalk\]/);
   const settings = JSON.parse(readFileSync(agySettings, 'utf8'));
-  assert.ok(settings.permissions.allow.includes('mcp(let-them-talk/*)'));
+  assert.ok(settings.permissions.allow.includes('mcp(cotalk/*)'));
 });
 
 test('setup reports failed: <reason> and exits 1 if a tool fails', async (t) => {
@@ -107,9 +107,9 @@ test('setup reports failed: <reason> and exits 1 if a tool fails', async (t) => 
 
   const env = {
     ...process.env,
-    LTT_HOME: d.home,
-    LTT_PORT: String(d.port),
-    LTT_CLAUDE_BIN: FAKE_TOOL,
+    COTALK_HOME: d.home,
+    COTALK_PORT: String(d.port),
+    COTALK_CLAUDE_BIN: FAKE_TOOL,
     FAKE_TOOL_FAIL: '1',
   };
 

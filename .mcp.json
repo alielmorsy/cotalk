@@ -1,9 +1,9 @@
 {
   "mcpServers": {
-    "ltt": {
+    "cotalk": {
       "type": "http",
-      "url": "http://127.0.0.1:${LTT_PORT:-7777}/mcp",
-      "headersHelper": "node \"${CLAUDE_PLUGIN_ROOT}/bin/ltt.js\" headers"
+      "url": "http://127.0.0.1:${COTALK_PORT:-7878}/mcp",
+      "headersHelper": "node \"${CLAUDE_PLUGIN_ROOT}/bin/cotalk.js\" headers"
     }
   }
 }

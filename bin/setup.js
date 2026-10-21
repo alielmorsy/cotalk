@@ -5,19 +5,19 @@ import { fileURLToPath } from 'node:url';
 import { base, ensureDaemon, readToken } from '../lib/client.js';
 
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url)).replaceAll('\\', '/').replace(/\/+$/, '');
-const LTT_CLI = fileURLToPath(new URL('./ltt.js', import.meta.url));
+const COTALK_CLI = fileURLToPath(new URL('./cotalk.js', import.meta.url));
 
 function getMarketplaceName() {
   const p = join(REPO_ROOT, '.claude-plugin', 'marketplace.json');
   try {
-    return JSON.parse(readFileSync(p, 'utf8')).name || 'let-them-talk-dev';
+    return JSON.parse(readFileSync(p, 'utf8')).name || 'cotalk';
   } catch {
-    return 'let-them-talk-dev';
+    return 'cotalk';
   }
 }
 
 export function probeTool(tool) {
-  const envKey = `LTT_${tool.toUpperCase()}_BIN`;
+  const envKey = `COTALK_${tool.toUpperCase()}_BIN`;
   const bin = process.env[envKey] || tool;
   try {
     if (bin.endsWith('.js')) {
@@ -44,22 +44,22 @@ function runTool(bin, args) {
   return spawnSync(bin, args, { encoding: 'utf8' });
 }
 
-function runLtt(args, env = process.env) {
-  return spawnSync(process.execPath, [LTT_CLI, ...args], { encoding: 'utf8', env });
+function runCotalk(args, env = process.env) {
+  return spawnSync(process.execPath, [COTALK_CLI, ...args], { encoding: 'utf8', env });
 }
 
 function commandsFor(tool, repoRoot, marketplaceName, statusline) {
   const list = [];
   if (tool === 'claude') {
     list.push(`claude plugin marketplace add ${repoRoot}`);
-    list.push(`claude plugin install let-them-talk@${marketplaceName}`);
-    if (statusline) list.push('ltt statusline claude');
+    list.push(`claude plugin install cotalk@${marketplaceName}`);
+    if (statusline) list.push('cotalk statusline claude');
   } else if (tool === 'agy') {
     list.push(`agy plugin install ${repoRoot}`);
-    list.push('ltt agy-mcp');
-    if (statusline) list.push('ltt statusline agy');
+    list.push('cotalk agy-mcp');
+    if (statusline) list.push('cotalk statusline agy');
   } else if (tool === 'codex') {
-    list.push('ltt codex-mcp');
+    list.push('cotalk codex-mcp');
   }
   return list;
 }
@@ -121,13 +121,13 @@ export async function main(cmd, rawArgs) {
         if (r1.status !== 0 && !out1.toLowerCase().includes('already')) {
           throw new Error(out1.trim() || `marketplace add exit code ${r1.status}`);
         }
-        const r2 = runTool(probe.bin, ['plugin', 'install', `let-them-talk@${marketplaceName}`]);
+        const r2 = runTool(probe.bin, ['plugin', 'install', `cotalk@${marketplaceName}`]);
         const out2 = (r2.stdout || '') + (r2.stderr || '');
         if (r2.status !== 0 && !out2.toLowerCase().includes('already')) {
           throw new Error(out2.trim() || `plugin install exit code ${r2.status}`);
         }
         if (statusline) {
-          const r3 = runLtt(['statusline', 'claude', ...settingsArgs]);
+          const r3 = runCotalk(['statusline', 'claude', ...settingsArgs]);
           if (r3.status !== 0) throw new Error(r3.stderr.trim() || r3.stdout.trim() || `statusline failed`);
         }
       } else if (tool === 'agy') {
@@ -136,14 +136,14 @@ export async function main(cmd, rawArgs) {
         if (r1.status !== 0 && !out1.toLowerCase().includes('already')) {
           throw new Error(out1.trim() || `plugin install exit code ${r1.status}`);
         }
-        const r2 = runLtt(['agy-mcp', ...settingsArgs]);
+        const r2 = runCotalk(['agy-mcp', ...settingsArgs]);
         if (r2.status !== 0) throw new Error(r2.stderr.trim() || r2.stdout.trim() || `agy-mcp failed`);
         if (statusline) {
-          const r3 = runLtt(['statusline', 'agy', ...settingsArgs]);
+          const r3 = runCotalk(['statusline', 'agy', ...settingsArgs]);
           if (r3.status !== 0) throw new Error(r3.stderr.trim() || r3.stdout.trim() || `statusline failed`);
         }
       } else if (tool === 'codex') {
-        const r = runLtt(['codex-mcp']);
+        const r = runCotalk(['codex-mcp']);
         if (r.status !== 0) throw new Error(r.stderr.trim() || r.stdout.trim() || `codex-mcp failed`);
       }
       console.log(`${tool}: ok`);

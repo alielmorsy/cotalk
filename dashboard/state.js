@@ -1,8 +1,8 @@
 // Central state management.
 // U7: All localStorage reads/writes are wrapped in try/catch; page works if unavailable.
 
-const LAST_WS_KEY = 'ltt_last_workspace';
-const THEME_KEY = 'ltt_dashboard_theme';
+const LAST_WS_KEY = 'cotalk_last_workspace';
+const THEME_KEY = 'cotalk_dashboard_theme';
 
 export function loadLastWorkspace() {
   try {

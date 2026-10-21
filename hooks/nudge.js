@@ -9,7 +9,7 @@ try {
     const { workspace, agent } = found.config;
     const n = await api('GET', '/api/unread', { query: { workspace, agent, mode: 'notify' } });
     if (n.summary.total) {
-      const text = `let-them-talk: ${unreadLine(n.summary)}\n${describeEvents(n.events, 10)}`;
+      const text = `cotalk: ${unreadLine(n.summary)}\n${describeEvents(n.events, 10)}`;
       out = JSON.stringify({
         hookSpecificOutput: { hookEventName: input.hook_event_name || 'UserPromptSubmit', additionalContext: text.slice(0, 9000) },
       });

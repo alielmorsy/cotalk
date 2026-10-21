@@ -1,9 +1,9 @@
 {
-  "name": "let-them-talk-dev",
-  "interface": { "displayName": "let-them-talk" },
+  "name": "cotalk",
+  "interface": { "displayName": "cotalk" },
   "plugins": [
     {
-      "name": "let-them-talk",
+      "name": "cotalk",
       "source": { "source": "url", "url": "./" },
       "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
       "category": "Developer Tools"

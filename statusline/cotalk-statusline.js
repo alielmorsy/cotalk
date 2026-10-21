@@ -1,11 +1,11 @@
-// self-contained: copied to $LTT_HOME by `ltt statusline`
+// self-contained: copied to $COTALK_HOME by `cotalk statusline`
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { execSync } from 'node:child_process';
 
-const home = process.env.LTT_HOME || join(homedir(), '.let-them-talk');
-const port = process.env.LTT_PORT || '7777';
+const home = process.env.COTALK_HOME || join(homedir(), '.cotalk');
+const port = process.env.COTALK_PORT || '7878';
 
 async function readStdin() {
   return new Promise((resolve) => {
@@ -19,10 +19,10 @@ async function readStdin() {
 // same identity rules as lib/client.js findConfig (only workspace + agent needed here)
 function findConfig(dir) {
   const tool = process.env.CLAUDECODE === '1' ? 'claude' : 'agy';
-  const envAgent = process.env.LTT_TOOL && process.env.LTT_TOOL !== tool ? '' : process.env.LTT_AGENT; // identity meant for another tool
+  const envAgent = process.env.COTALK_TOOL && process.env.COTALK_TOOL !== tool ? '' : process.env.COTALK_AGENT; // identity meant for another tool
   for (;;) {
     let text = null;
-    try { text = readFileSync(join(dir, '.ltt.json'), 'utf8'); } catch {}
+    try { text = readFileSync(join(dir, '.cotalk.json'), 'utf8'); } catch {}
     if (text !== null) {
       let file;
       try { file = JSON.parse(text); } catch { return null; }
@@ -58,7 +58,7 @@ async function main() {
     try {
       const token = readFileSync(join(home, 'token'), 'utf8').trim();
       const q = new URLSearchParams({ workspace: cfg.workspace, agent: cfg.agent, mode: 'peek' });
-      const res = await fetch(`http://127.0.0.1:${port}/api/unread?${q}`, { headers: { 'x-ltt-token': token }, signal: AbortSignal.timeout(800) });
+      const res = await fetch(`http://127.0.0.1:${port}/api/unread?${q}`, { headers: { 'x-cotalk-token': token }, signal: AbortSignal.timeout(800) });
       if (res.ok) {
         const d = await res.json();
         ours = `${tag} 📬${d.summary.total} ⏳${d.incoming}`;

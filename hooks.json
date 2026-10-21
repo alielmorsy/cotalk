@@ -1,5 +1,5 @@
 {
-  "let-them-talk": {
+  "cotalk": {
     "PreInvocation": [
       { "type": "command", "command": "node hooks/agy.js pre-invocation", "timeout": 15 }
     ],

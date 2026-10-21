@@ -28,7 +28,7 @@ async function setup(t, { workers, roster, settings, applySettings, usage, publi
   t.after(() => { server.closeAllConnections?.(); server.close(); store.close(); });
   const base = `http://127.0.0.1:${server.address().port}`;
   const req = (path, { method = 'GET', body, token = 'tok', headers = {} } = {}) =>
-    fetch(base + path, { method, headers: { 'content-type': 'application/json', ...(token ? { 'x-ltt-token': token } : {}), ...headers }, body: body === undefined ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)) });
+    fetch(base + path, { method, headers: { 'content-type': 'application/json', ...(token ? { 'x-cotalk-token': token } : {}), ...headers }, body: body === undefined ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)) });
   const rawReq = (path, { method = 'GET', headers = {} } = {}) =>
     new Promise((resolve, reject) => {
       const r = http.request({ host: '127.0.0.1', port: server.address().port, path, method, headers }, (res) => {
@@ -45,14 +45,14 @@ async function setup(t, { workers, roster, settings, applySettings, usage, publi
 test('health needs no auth; everything else does', async (t) => {
   const { req, base } = await setup(t);
   const h = await req('/health', { token: null });
-  assert.equal((await h.json()).name, 'let-them-talk');
+  assert.equal((await h.json()).name, 'cotalk');
   assert.equal((await req('/api/state', { token: null })).status, 401);
   assert.equal((await req('/api/state', { token: 'nope' })).status, 401);
   assert.equal((await req('/api/state?token=tok', { token: null })).status, 401, 'query token rejected on /api');
   const loginRes = await fetch(`${base}/?token=tok`, { redirect: 'manual' });
   assert.equal(loginRes.status, 302);
   assert.equal(loginRes.headers.get('location'), '/');
-  assert.match(loginRes.headers.get('set-cookie'), /^ltt_token=tok; HttpOnly; SameSite=Strict; Path=\/; Max-Age=31536000/);
+  assert.match(loginRes.headers.get('set-cookie'), /^cotalk_token=tok; HttpOnly; SameSite=Strict; Path=\/; Max-Age=31536000/);
   const badLogin = await fetch(`${base}/?token=bad`, { redirect: 'manual' });
   assert.equal(badLogin.status, 401);
   assert.match(badLogin.headers.get('content-type'), /text\/html/);
@@ -139,7 +139,7 @@ test('wait: client disconnect removes the waiter; aborted signal resolves closed
   store.register({ workspace: 'shop', agent: 'api' });
   store.notify('shop', 'api');
   const ctrl = new AbortController();
-  const pending = fetch(`${base}/api/wait?workspace=shop&agent=api&timeout=60`, { headers: { 'x-ltt-token': 'tok' }, signal: ctrl.signal }).catch(() => {});
+  const pending = fetch(`${base}/api/wait?workspace=shop&agent=api&timeout=60`, { headers: { 'x-cotalk-token': 'tok' }, signal: ctrl.signal }).catch(() => {});
   for (let i = 0; i < 50 && waiterCount() === 0; i++) await new Promise(r => setTimeout(r, 20));
   assert.equal(waiterCount(), 1);
   ctrl.abort();
@@ -163,7 +163,7 @@ test('SSE streams events', async (t) => {
   assert.equal(bad.status, 401);
 
   // cookie connects to SSE
-  const res = await fetch(`${base}/events`, { headers: { cookie: 'ltt_token=tok' }, signal: ctrl.signal });
+  const res = await fetch(`${base}/events`, { headers: { cookie: 'cotalk_token=tok' }, signal: ctrl.signal });
   assert.equal(res.headers.get('content-type'), 'text/event-stream');
   const reader = res.body.getReader();
   store.register({ workspace: 'shop', agent: 'api' });
@@ -174,7 +174,7 @@ test('SSE streams events', async (t) => {
 
 test('dashboard served and never uses innerHTML', async (t) => {
   const { req } = await setup(t);
-  const r = await req('/', { headers: { cookie: 'ltt_token=tok' }, token: null });
+  const r = await req('/', { headers: { cookie: 'cotalk_token=tok' }, token: null });
   assert.match(r.headers.get('content-type'), /text\/html/);
   assert.equal(r.headers.get('content-security-policy'), "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:");
   assert.equal(r.headers.get('referrer-policy'), 'no-referrer');
@@ -233,15 +233,15 @@ test('static assets /dashboard/:file served without auth', async (t) => {
     assert.equal(res.status, 400, `vector ${v} should return 400`);
     const text = await res.text();
     assert.equal(text.includes('createServer'), false, `vector ${v} must not leak server.js`);
-    assert.equal(text.includes('let-them-talk'), false, `vector ${v} must not leak package.json`);
+    assert.equal(text.includes('cotalk'), false, `vector ${v} must not leak package.json`);
   }
 });
 
 test('missing dashboard index.html returns 500', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'ltt-missing-dash-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cotalk-missing-dash-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const { req } = await setup(t, { publicDir: dir });
-  const res = await req('/', { headers: { cookie: 'ltt_token=tok' }, token: null });
+  const res = await req('/', { headers: { cookie: 'cotalk_token=tok' }, token: null });
   assert.equal(res.status, 500);
   assert.equal(res.headers.get('content-type'), 'text/plain; charset=utf-8');
   assert.equal(await res.text(), 'dashboard not built: run npm run build');
@@ -330,8 +330,8 @@ test('ops routes: workers, roster, settings via DI', async (t) => {
     tailLog: async (args) => { recorded.workers.tailLog = args; return { name: args.name, lines: ['log line 1'], total: 1 }; },
   };
   const mockRoster = {
-    readRoster: async (args) => { recorded.roster.readRoster = args; return { path: '/repo/.ltt.json', format: 'multi', workspace: args.workspace, agents: [] }; },
-    writeRoster: async (args) => { recorded.roster.writeRoster = args; return { ok: true, path: '/repo/.ltt.json', count: 1 }; },
+    readRoster: async (args) => { recorded.roster.readRoster = args; return { path: '/repo/.cotalk.json', format: 'multi', workspace: args.workspace, agents: [] }; },
+    writeRoster: async (args) => { recorded.roster.writeRoster = args; return { ok: true, path: '/repo/.cotalk.json', count: 1 }; },
   };
   const mockSettings = {
     readSettings: async () => ({ activeMs: 120_000, idleMs: 1_800_000, eventRetentionDays: 7, eventRetentionKeepMin: 200 }),
@@ -435,36 +435,36 @@ test('dashboard cookie auth (lead.dashboard.cookie)', async (t) => {
   const login = await fetch(`${base}/?token=tok`, { redirect: 'manual' });
   assert.equal(login.status, 302);
   assert.equal(login.headers.get('location'), '/');
-  assert.match(login.headers.get('set-cookie'), /^ltt_token=tok; HttpOnly; SameSite=Strict; Path=\/; Max-Age=31536000/);
+  assert.match(login.headers.get('set-cookie'), /^cotalk_token=tok; HttpOnly; SameSite=Strict; Path=\/; Max-Age=31536000/);
 
   // 2. Cookie alone authorizes GET /, /api/state, POST route, and /events
-  const dash = await req('/', { headers: { cookie: 'ltt_token=tok' }, token: null });
+  const dash = await req('/', { headers: { cookie: 'cotalk_token=tok' }, token: null });
   assert.equal(dash.status, 200);
   assert.match(dash.headers.get('content-type'), /text\/html/);
 
-  const stateRes = await req('/api/state', { headers: { cookie: 'ltt_token=tok' }, token: null });
+  const stateRes = await req('/api/state', { headers: { cookie: 'cotalk_token=tok' }, token: null });
   assert.equal(stateRes.status, 200);
   assert.ok((await stateRes.json()).workspaces);
 
-  const postRes = await req('/api/requests/cancel', { method: 'POST', body: { workspace: 'shop', ids: [999] }, headers: { cookie: 'ltt_token=tok' }, token: null });
+  const postRes = await req('/api/requests/cancel', { method: 'POST', body: { workspace: 'shop', ids: [999] }, headers: { cookie: 'cotalk_token=tok' }, token: null });
   assert.equal(postRes.status, 200);
 
   const ac = new AbortController();
   t.after(() => ac.abort());
-  const evRes = await fetch(`${base}/events`, { headers: { cookie: 'ltt_token=tok' }, signal: ac.signal });
+  const evRes = await fetch(`${base}/events`, { headers: { cookie: 'cotalk_token=tok' }, signal: ac.signal });
   assert.equal(evRes.status, 200);
   assert.equal(evRes.headers.get('content-type'), 'text/event-stream');
 
   // 3. Wrong cookie -> 401
-  const badApi = await req('/api/state', { headers: { cookie: 'ltt_token=wrong' }, token: null });
+  const badApi = await req('/api/state', { headers: { cookie: 'cotalk_token=wrong' }, token: null });
   assert.equal(badApi.status, 401);
 
-  const badDash = await req('/', { headers: { cookie: 'ltt_token=wrong' }, token: null });
+  const badDash = await req('/', { headers: { cookie: 'cotalk_token=wrong' }, token: null });
   assert.equal(badDash.status, 401);
   assert.match(badDash.headers.get('content-type'), /text\/html/);
 
   // 4. Cross-origin POST with cookie -> 403
-  const evilPost = await req('/api/requests/cancel', { method: 'POST', body: { workspace: 'shop', ids: [999] }, headers: { cookie: 'ltt_token=tok', origin: 'http://evil.com' }, token: null });
+  const evilPost = await req('/api/requests/cancel', { method: 'POST', body: { workspace: 'shop', ids: [999] }, headers: { cookie: 'cotalk_token=tok', origin: 'http://evil.com' }, token: null });
   assert.equal(evilPost.status, 403);
 
   // 5. Header token still works

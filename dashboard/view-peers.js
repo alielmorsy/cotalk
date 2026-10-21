@@ -127,7 +127,7 @@ export function renderPeers(wsData, onRefresh) {
   const workersHeader = el('div', { class: 'section-header mt-8' },
     el('div', null,
       el('h3', null, 'Background Workers'),
-      el('p', { class: 'section-desc' }, 'Manage detached agent processes running via ltt worker.')
+      el('p', { class: 'section-desc' }, 'Manage detached agent processes running via cotalk worker.')
     ),
     el('div', { class: 'header-actions' },
       el('button', {

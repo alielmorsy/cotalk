@@ -9,7 +9,7 @@ import { startDaemon, mcp } from './helpers.js';
 import { POLL_S } from '../lib/client.js';
 import { parseArgs, agyArgs, chatArgs, turnLine, render, pushPrompt, bootstrapPrompt } from '../bin/worker.js';
 
-const CLI = fileURLToPath(new URL('../bin/ltt.js', import.meta.url));
+const CLI = fileURLToPath(new URL('../bin/cotalk.js', import.meta.url));
 const FAKE = fileURLToPath(new URL('./fixtures/fake-agy.js', import.meta.url));
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -54,7 +54,7 @@ test('render: text, tool steps, results, everything else null', () => {
   assert.equal(render(su({ step_index: 1, state: 'DONE', step_type: 'agent_response', text_delta: 'hello' })), 'hello');
   assert.equal(render(su({ step_index: 1, state: 'ACTIVE', step_type: 'tool', tool_name: 'view_file' })), '  → view_file');
   assert.equal(render(su({ step_index: 1, state: 'ACTIVE', step_type: 'tool', tool_name: 'call_mcp_tool',
-    tool_info: { name: 'call_mcp_tool', parameters: { server_name: 'let-them-talk', tool_name: 'ltt_inbox' } } })), '  → call_mcp_tool ltt_inbox');
+    tool_info: { name: 'call_mcp_tool', parameters: { server_name: 'cotalk', tool_name: 'cotalk_inbox' } } })), '  → call_mcp_tool cotalk_inbox');
   assert.equal(render(su({ step_index: 1, state: 'DONE', step_type: 'tool', tool_name: 'view_file' })), null);
   assert.equal(render(su({ step_index: 0, state: 'DONE', step_type: 'user_input' })), null);
   assert.equal(render({ event: 'init', conversation_id: 'c' }), null);
@@ -62,19 +62,19 @@ test('render: text, tool steps, results, everything else null', () => {
   assert.equal(render({ event: 'result', result: { status: 'ERROR', error: 'boom' } }), '✗ boom');
 });
 
-test('prompts: bootstrap names identity and ltt_inbox; push lists events', () => {
+test('prompts: bootstrap names identity and cotalk_inbox; push lists events', () => {
   const b = bootstrapPrompt({ workspace: 'engine', name: 'physics', role: 'Phys' });
-  for (const s of ['worker "physics"', 'Phys', '"engine"', 'ltt_inbox', 'done', '"user"', 'lead', 'ready']) assert.ok(b.includes(s), s);
+  for (const s of ['worker "physics"', 'Phys', '"engine"', 'cotalk_inbox', 'done', '"user"', 'lead', 'ready']) assert.ok(b.includes(s), s);
   const p = pushPrompt([{ id: 3, type: 'task.new', summary: 'lead assigns physics a task: A (#1)' }]);
-  assert.ok(p.startsWith('let-them-talk: new for you:\n- #3 lead assigns physics a task: A (#1)\nCall ltt_inbox and handle them (claim → do → done with a summary). '), p);
+  assert.ok(p.startsWith('cotalk: new for you:\n- #3 lead assigns physics a task: A (#1)\nCall cotalk_inbox and handle them (claim → do → done with a summary). '), p);
   assert.ok(p.includes('installed on PATH'), p);
 });
 
-// ---- integration: bin/ltt.js worker against a real daemon and the fake agy ----
+// ---- integration: bin/cotalk.js worker against a real daemon and the fake agy ----
 
 function cleanEnv(extra) {
   const env = { ...process.env, ...extra };
-  for (const k of ['LTT_AGENT', 'LTT_ROLE', 'LTT_OWNS', 'LTT_WORKER', 'LTT_WORKER_DETACHED', 'LTT_TOOL', 'CLAUDECODE']) delete env[k];
+  for (const k of ['COTALK_AGENT', 'COTALK_ROLE', 'COTALK_OWNS', 'COTALK_WORKER', 'COTALK_WORKER_DETACHED', 'COTALK_TOOL', 'CLAUDECODE']) delete env[k];
   return env;
 }
 
@@ -95,24 +95,24 @@ async function stopRunner(r) {
   clearTimeout(t);
 }
 
-async function setup(t, { delay, mcpConfig = true, ltt = true, fake = {} } = {}) {
+async function setup(t, { delay, mcpConfig = true, cotalk = true, fake = {} } = {}) {
   let r;
   t.after(() => stopRunner(r)); // registered before startDaemon: after-hooks run FIFO, so the runner stops before the daemon
   const d = await startDaemon(t);
-  const dir = mkdtempSync(join(tmpdir(), 'ltt-worker-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cotalk-worker-'));
   t.after(() => rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
   const cwd = join(dir, 'proj');
   mkdirSync(cwd);
-  if (ltt) writeFileSync(join(cwd, '.ltt.json'), JSON.stringify({ workspace: 'engine', agent: 'lead' }));
+  if (cotalk) writeFileSync(join(cwd, '.cotalk.json'), JSON.stringify({ workspace: 'engine', agent: 'lead' }));
   const mcpPath = join(dir, 'mcp_config.json');
-  if (mcpConfig) writeFileSync(mcpPath, JSON.stringify({ mcpServers: { 'let-them-talk': { serverUrl: `${d.base}/mcp` } } }));
+  if (mcpConfig) writeFileSync(mcpPath, JSON.stringify({ mcpServers: { 'cotalk': { serverUrl: `${d.base}/mcp` } } }));
   const agyLog = join(dir, 'agy-turns.log');
   const env = cleanEnv({
-    LTT_HOME: d.home, LTT_PORT: String(d.port), LTT_AGY_BIN: FAKE, LTT_AGY_MCP_CONFIG: mcpPath, FAKE_AGY_LOG: agyLog,
+    COTALK_HOME: d.home, COTALK_PORT: String(d.port), COTALK_AGY_BIN: FAKE, COTALK_AGY_MCP_CONFIG: mcpPath, FAKE_AGY_LOG: agyLog,
     ...(delay ? { FAKE_AGY_DELAY_MS: String(delay) } : {}), ...fake,
   });
   const turns = () => { try { return readFileSync(agyLog, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)); } catch { return []; } };
-  const state = async () => (await (await fetch(`${d.base}/api/state`, { headers: { 'x-ltt-token': d.token } })).json())
+  const state = async () => (await (await fetch(`${d.base}/api/state`, { headers: { 'x-cotalk-token': d.token } })).json())
     .workspaces.find(w => w.workspace === 'engine');
   const start = (args = ['physics', '--role', 'Phys']) => (r = runner(args, { cwd, env }));
   return { d, dir, cwd, env, turns, state, start, m: mcp(d.base, d.token) };
@@ -131,18 +131,18 @@ test('worker: bootstrap, registration, pushed task, typed line, clean cwd, /quit
   const r = s.start();
   const boot = await until(() => s.turns()[0], 5000, 'bootstrap turn');
   assert.match(boot, /worker "physics"/);
-  assert.match(boot, /ltt_inbox/);
+  assert.match(boot, /cotalk_inbox/);
   const me = await until(async () => (await s.state())?.peers.find(p => p.agent === 'physics'), 5000, 'registration');
   assert.equal(me.tool, 'agy-worker');
   assert.equal(me.role, 'Phys');
   await until(() => r.out.includes('✓ turn done (1 tokens)'), 5000, 'bootstrap result rendered');
   assert.match(r.out, /ack: /);
 
-  await s.m.call('ltt_register', { workspace: 'engine', agent: 'lead', role: 'architect' });
-  const task = await s.m.call('ltt_request', { workspace: 'engine', agent: 'lead', to: 'physics', kind: 'task', title: 'Tune gravity constant' });
+  await s.m.call('cotalk_register', { workspace: 'engine', agent: 'lead', role: 'architect' });
+  const task = await s.m.call('cotalk_request', { workspace: 'engine', agent: 'lead', to: 'physics', kind: 'task', title: 'Tune gravity constant' });
   assert.equal(task.isError, false, task.text);
   const push = await until(() => s.turns().find(x => x.includes('Tune gravity constant')), 5000, 'pushed task turn');
-  assert.match(push, /^let-them-talk: new for you:/);
+  assert.match(push, /^cotalk: new for you:/);
 
   r.child.stdin.write('hello\n');
   await until(() => s.turns().includes('hello'), 5000, 'typed turn');
@@ -150,24 +150,24 @@ test('worker: bootstrap, registration, pushed task, typed line, clean cwd, /quit
   r.child.stdin.write('/quit\n');
   assert.equal(await r.exited, 0, r.err);
   assert.match(r.out, /agy exited \(0\)/);
-  assert.deepEqual(readdirSync(s.cwd), ['.ltt.json'], 'nothing written into cwd');
-  assert.ok(readFileSync(join(s.d.home, 'workers', 'engine.physics.log'), 'utf8').includes('Tune gravity constant'), 'log in LTT_HOME/workers');
+  assert.deepEqual(readdirSync(s.cwd), ['.cotalk.json'], 'nothing written into cwd');
+  assert.ok(readFileSync(join(s.d.home, 'workers', 'engine.physics.log'), 'utf8').includes('Tune gravity constant'), 'log in COTALK_HOME/workers');
 });
 
 test('worker: push waits for idle and pushes once with both tasks', async (t) => {
   const s = await setup(t, { delay: 1500 });
-  await s.m.call('ltt_register', { workspace: 'engine', agent: 'lead' });
+  await s.m.call('cotalk_register', { workspace: 'engine', agent: 'lead' });
   const r = s.start();
   await until(async () => (await s.state())?.peers.find(p => p.agent === 'physics'), 5000, 'registration');
   await until(() => s.turns().length === 1, 5000, 'bootstrap turn'); // bootstrap is now running for 1.5 s
   for (const title of ['First busy task', 'Second busy task'])
-    assert.equal((await s.m.call('ltt_request', { workspace: 'engine', agent: 'lead', to: 'physics', kind: 'task', title })).isError, false);
+    assert.equal((await s.m.call('cotalk_request', { workspace: 'engine', agent: 'lead', to: 'physics', kind: 'task', title })).isError, false);
   await sleep(300);
   assert.equal(s.turns().length, 1, 'nothing pushed while busy');
   await until(() => s.turns().length >= 2, 5000, 'push after result');
   await until(() => (r.out.match(/✓ turn done/g) || []).length >= 2, 5000, 'push turn result');
   await sleep(500);
-  const pushes = s.turns().filter(x => x.startsWith('let-them-talk: new for you:'));
+  const pushes = s.turns().filter(x => x.startsWith('cotalk: new for you:'));
   assert.equal(pushes.length, 1, JSON.stringify(s.turns()));
   assert.match(pushes[0], /First busy task/);
   assert.match(pushes[0], /Second busy task/);
@@ -177,14 +177,14 @@ test('worker: /reply answers a question the worker asked the user', async (t) =>
   const s = await setup(t);
   const r = s.start();
   await until(async () => (await s.state())?.peers.find(p => p.agent === 'physics'), 5000, 'registration');
-  const q = await s.m.call('ltt_request', { workspace: 'engine', agent: 'physics', to: 'user', kind: 'question', title: 'Use SI units?' });
+  const q = await s.m.call('cotalk_request', { workspace: 'engine', agent: 'physics', to: 'user', kind: 'question', title: 'Use SI units?' });
   assert.equal(q.isError, false, q.text);
   const id = q.data.request.id;
   r.child.stdin.write('hello\n'); // questions are listed after each turn's result
   await until(() => r.out.includes(`❓ #${id} Use SI units? — answer: /reply ${id} <text>`), 5000, 'question shown');
   r.child.stdin.write(`/reply ${id} yes\n`);
   await until(() => r.out.includes(`#${id} answered`), 5000, 'reply ack');
-  const got = await s.m.call('ltt_requests', { workspace: 'engine', agent: 'physics', id });
+  const got = await s.m.call('cotalk_requests', { workspace: 'engine', agent: 'physics', id });
   assert.equal(got.data.request.status, 'answered');
   assert.equal(got.data.request.response, 'yes');
 });
@@ -204,10 +204,10 @@ test('worker: missing MCP config or workspace → exit 1', async (t) => {
   const noMcp = await setup(t, { mcpConfig: false });
   const a = noMcp.start();
   assert.equal(await a.exited, 1);
-  assert.match(a.err, /ltt agy-mcp/);
+  assert.match(a.err, /cotalk agy-mcp/);
   assert.deepEqual(noMcp.turns(), [], 'agy never started');
 
-  const noWs = await setup(t, { ltt: false });
+  const noWs = await setup(t, { cotalk: false });
   const b = noWs.start();
   assert.equal(await b.exited, 1);
   assert.match(b.err, /no workspace/);
@@ -221,13 +221,13 @@ test('worker: long-poll stays under the fetch 300 s headers timeout', () => {
   assert.ok(POLL_S + 10 < 300, String(POLL_S));
 });
 
-test('worker: skips a null JSON line; agy gets LTT_TOOL=agy', async (t) => {
+test('worker: skips a null JSON line; agy gets COTALK_TOOL=agy', async (t) => {
   const s = await setup(t, { fake: { FAKE_AGY_NULL: '1' } });
   const r = s.start();
   await until(() => r.out.includes('✓ turn done') || r.code !== undefined, 5000, 'bootstrap result');
   assert.equal(r.code, undefined, r.err);
   r.child.stdin.write('env' + String.fromCharCode(10));
-  await until(() => r.out.includes('LTT_TOOL=agy'), 5000, 'env turn');
+  await until(() => r.out.includes('COTALK_TOOL=agy'), 5000, 'env turn');
   r.child.stdin.write('/quit' + String.fromCharCode(10));
   assert.equal(await r.exited, 0, r.err);
 });
@@ -253,15 +253,15 @@ test('--ask: questions go to the task sender, tagged [user]; without it they go 
   assert.ok(own.includes('to "user", the human, never to "lead"'), own);
   assert.ok(!own.includes('[user]'));
   assert.ok(chatArgs({ workspace: 'e', name: 'g', ask: true })[1].includes('sent you the task'));
-  assert.ok(chatArgs({ workspace: 'e', name: 'g' })[1].includes('here directly, never with ltt_request to "user" or "lead"'));
+  assert.ok(chatArgs({ workspace: 'e', name: 'g' })[1].includes('here directly, never with cotalk_request to "user" or "lead"'));
   assert.ok(pushPrompt([], true).includes("task's sender") && pushPrompt([]).includes('not "lead"'));
 });
 
-test('--chat: parsed, and chatArgs is an interactive agy (-i) that parks on a background ltt wait', () => {
+test('--chat: parsed, and chatArgs is an interactive agy (-i) that parks on a background cotalk wait', () => {
   assert.equal(parseArgs(['g', '--chat']).chat, true);
   const a = chatArgs({ workspace: 'engine', name: 'gfx', role: 'RHI', yolo: true, extra: ['--model', 'm'] });
   assert.equal(a[0], '-i');
-  for (const s of ['"gfx"', '"engine"', 'RHI', 'ltt_inbox', '`ltt wait`', 'BACKGROUND']) assert.ok(a[1].includes(s), s);
+  for (const s of ['"gfx"', '"engine"', 'RHI', 'cotalk_inbox', '`cotalk wait`', 'BACKGROUND']) assert.ok(a[1].includes(s), s);
   assert.deepEqual(a.slice(2), ['--dangerously-skip-permissions', '--model', 'm']);
   assert.deepEqual(chatArgs({ workspace: 'e', name: 'g' }).slice(2), []);
 });

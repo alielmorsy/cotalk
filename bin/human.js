@@ -1,8 +1,8 @@
-// ltt inbox | reply | ask | task: the human (`user`) reads and answers requests without a model session
+// cotalk inbox | reply | ask | task: the human (`user`) reads and answers requests without a model session
 import { join } from 'node:path';
 import { findConfig, api, ensureDaemon, home } from '../lib/client.js';
 
-const USAGE = 'usage: ltt inbox | reply <id> <text...> [--reject] | ask <agent> <title...> [--body B] | task <agent> <title...> [--body B]  [--workspace W]';
+const USAGE = 'usage: cotalk inbox | reply <id> <text...> [--reject] | ask <agent> <title...> [--body B] | task <agent> <title...> [--body B]  [--workspace W]';
 const die = (msg) => { console.error(msg); process.exit(1); };
 
 function parse(rawArgs) {
@@ -19,11 +19,11 @@ function parse(rawArgs) {
 export async function main(cmd, rawArgs) {
   const { pos, body, workspace: w, reject } = parse(rawArgs);
   const workspace = w || findConfig(process.cwd())?.config.workspace;
-  if (!workspace) die('no workspace: pass --workspace or run inside a folder with .ltt.json');
+  if (!workspace) die('no workspace: pass --workspace or run inside a folder with .cotalk.json');
   if ((cmd === 'reply' && (!/^\d+$/.test(pos[0] ?? '') || (pos.length < 2 && !reject))) || ((cmd === 'ask' || cmd === 'task') && pos.length < 2)) die(USAGE);
   // once a fetch ran, never process.exit(): on Windows it can abort in libuv (UV_HANDLE_CLOSING) while the socket closes
   try { await run(cmd, workspace, { pos, body, reject }); } catch (e) {
-    console.error(`ltt ${cmd}: ${e.message}`);
+    console.error(`cotalk ${cmd}: ${e.message}`);
     process.exitCode = 1;
   }
 }

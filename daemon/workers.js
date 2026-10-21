@@ -2,11 +2,11 @@ import { readdirSync, readFileSync, writeFileSync, unlinkSync, existsSync, statS
 import { join, resolve } from 'node:path';
 import { spawn, execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { LttError, USER } from './store.js';
+import { CotalkError, USER } from './store.js';
 import { home } from '../lib/client.js';
 
 export const NAME = /^[a-z0-9][a-z0-9_-]{0,31}$/i;
-const LTT_BIN = fileURLToPath(new URL('../bin/ltt.js', import.meta.url));
+const COTALK_BIN = fileURLToPath(new URL('../bin/cotalk.js', import.meta.url));
 
 export const workersDir = () => join(home(), 'workers');
 export const workerLogPath = (workspace, name) => join(workersDir(), `${workspace}.${name}.log`);
@@ -19,14 +19,14 @@ export function normalizeDir(p) {
 }
 
 export function checkAllowedDir(dir, allowedDirs) {
-  if (!dir) throw new LttError('invalid', 'cwd is required');
+  if (!dir) throw new CotalkError('invalid', 'cwd is required');
   if (!Array.isArray(allowedDirs) || allowedDirs.length === 0) {
-    throw new LttError('forbidden', 'allowedDirs must be a non-empty array');
+    throw new CotalkError('forbidden', 'allowedDirs must be a non-empty array');
   }
   const target = normalizeDir(dir);
   const match = allowedDirs.some(a => normalizeDir(a) === target);
   if (!match) {
-    throw new LttError('forbidden', `directory "${dir}" is not in allowedDirs for workspace`);
+    throw new CotalkError('forbidden', `directory "${dir}" is not in allowedDirs for workspace`);
   }
 }
 
@@ -92,13 +92,13 @@ export async function listWorkers({ workspace } = {}) {
 
 export async function startWorker({ workspace, name, role = '', owns = [], cwd, yolo = false, allowedDirs } = {}) {
   if (!workspace || !NAME.test(workspace)) {
-    throw new LttError('invalid', `invalid workspace "${workspace}"`);
+    throw new CotalkError('invalid', `invalid workspace "${workspace}"`);
   }
   if (!name || !NAME.test(name) || name.toLowerCase() === USER) {
-    throw new LttError('invalid', `invalid worker name "${name}"`);
+    throw new CotalkError('invalid', `invalid worker name "${name}"`);
   }
   if (!cwd) {
-    throw new LttError('invalid', 'cwd is required');
+    throw new CotalkError('invalid', 'cwd is required');
   }
 
   checkAllowedDir(cwd, allowedDirs);
@@ -108,18 +108,18 @@ export async function startWorker({ workspace, name, role = '', owns = [], cwd, 
     try {
       const existing = JSON.parse(readFileSync(pidPath, 'utf8'));
       if (existing?.workspace === workspace && existing?.name === name && existing?.pid && isProcessAlive(existing.pid)) {
-        throw new LttError('conflict', `worker "${name}" is already running in workspace "${workspace}" (pid ${existing.pid})`);
+        throw new CotalkError('conflict', `worker "${name}" is already running in workspace "${workspace}" (pid ${existing.pid})`);
       } else {
         try { unlinkSync(pidPath); } catch {}
       }
     } catch (err) {
-      if (err instanceof LttError) throw err;
+      if (err instanceof CotalkError) throw err;
       try { unlinkSync(pidPath); } catch {}
     }
   }
 
   const args = [
-    LTT_BIN,
+    COTALK_BIN,
     'worker',
     name,
     '--workspace', workspace,
@@ -144,7 +144,7 @@ export async function startWorker({ workspace, name, role = '', owns = [], cwd, 
 
   const env = { ...process.env };
   delete env.CLAUDECODE;
-  for (const k of ['LTT_AGENT', 'LTT_ROLE', 'LTT_OWNS', 'LTT_WORKER', 'LTT_WORKER_DETACHED', 'LTT_TOOL']) {
+  for (const k of ['COTALK_AGENT', 'COTALK_ROLE', 'COTALK_OWNS', 'COTALK_WORKER', 'COTALK_WORKER_DETACHED', 'COTALK_TOOL']) {
     delete env[k];
   }
 
@@ -164,7 +164,7 @@ export async function startWorker({ workspace, name, role = '', owns = [], cwd, 
   });
 
   if (spawnerCode !== 0) {
-    throw new LttError('invalid', `failed to start worker spawner (exit ${spawnerCode})${stderrText ? `: ${stderrText.trim()}` : ''}`);
+    throw new CotalkError('invalid', `failed to start worker spawner (exit ${spawnerCode})${stderrText ? `: ${stderrText.trim()}` : ''}`);
   }
 
   // Poll briefly (<= 3s) for runner to write the pid file
@@ -192,20 +192,20 @@ export async function startWorker({ workspace, name, role = '', owns = [], cwd, 
     await new Promise(r => setTimeout(r, 60));
   }
 
-  throw new LttError('invalid', `worker started but pid file not found within 3s (${pidPath})`);
+  throw new CotalkError('invalid', `worker started but pid file not found within 3s (${pidPath})`);
 }
 
 export async function stopWorker({ workspace, name, force = false } = {}) {
   if (!workspace || !NAME.test(workspace)) {
-    throw new LttError('invalid', `invalid workspace "${workspace}"`);
+    throw new CotalkError('invalid', `invalid workspace "${workspace}"`);
   }
   if (!name || !NAME.test(name) || name.toLowerCase() === USER) {
-    throw new LttError('invalid', `invalid worker name "${name}"`);
+    throw new CotalkError('invalid', `invalid worker name "${name}"`);
   }
 
   const pidPath = workerPidPath(workspace, name);
   if (!existsSync(pidPath)) {
-    throw new LttError('not_found', `worker "${name}" not found in workspace "${workspace}"`);
+    throw new CotalkError('not_found', `worker "${name}" not found in workspace "${workspace}"`);
   }
 
   let info;
@@ -217,7 +217,7 @@ export async function stopWorker({ workspace, name, force = false } = {}) {
   }
 
   if (info?.workspace !== workspace || info?.name !== name) {
-    throw new LttError('invalid', `worker pid file does not match workspace "${workspace}" and name "${name}"`);
+    throw new CotalkError('invalid', `worker pid file does not match workspace "${workspace}" and name "${name}"`);
   }
 
   const pid = info?.pid;
@@ -272,23 +272,23 @@ export async function stopWorker({ workspace, name, force = false } = {}) {
 
 export async function tailLog({ workspace, name, lines = 100 } = {}) {
   if (!workspace || !NAME.test(workspace)) {
-    throw new LttError('invalid', `invalid workspace "${workspace}"`);
+    throw new CotalkError('invalid', `invalid workspace "${workspace}"`);
   }
   if (!name || !NAME.test(name) || name.toLowerCase() === USER) {
-    throw new LttError('invalid', `invalid worker name "${name}"`);
+    throw new CotalkError('invalid', `invalid worker name "${name}"`);
   }
 
   const count = Math.min(Math.max(1, Math.floor(Number(lines) || 100)), 1000);
   const logPath = workerLogPath(workspace, name);
   if (!existsSync(logPath)) {
-    throw new LttError('not_found', `log file not found for worker "${name}" in workspace "${workspace}"`);
+    throw new CotalkError('not_found', `log file not found for worker "${name}" in workspace "${workspace}"`);
   }
 
   let stat;
   try {
     stat = statSync(logPath);
   } catch {
-    throw new LttError('not_found', `failed to stat log file for worker "${name}"`);
+    throw new CotalkError('not_found', `failed to stat log file for worker "${name}"`);
   }
 
   const maxBytes = 1024 * 1024;

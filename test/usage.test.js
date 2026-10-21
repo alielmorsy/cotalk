@@ -123,27 +123,27 @@ function withEnv(t, vars) {
   }
 }
 
-test('runTool: runs `-p /usage` from the temp dir without the session\'s LTT_* identity', async (t) => {
-  withEnv(t, { LTT_AGY_BIN: FAKE, LTT_CLAUDE_BIN: FAKE, LTT_AGENT: 'lead', LTT_TOOL: 'claude' });
+test('runTool: runs `-p /usage` from the temp dir without the session\'s COTALK_* identity', async (t) => {
+  withEnv(t, { COTALK_AGY_BIN: FAKE, COTALK_CLAUDE_BIN: FAKE, COTALK_AGENT: 'lead', COTALK_TOOL: 'claude' });
   for (const tool of ['agy', 'claude']) {
     const out = JSON.parse(await runTool(tool));
     assert.deepEqual(out.args, ['-p', '/usage']);
-    assert.equal(realpathSync(out.cwd), realpathSync(tmpdir()), 'no .ltt.json above the cwd');
-    assert.deepEqual(out.ltt, [], 'claude -p started here must not register as the lead');
+    assert.equal(realpathSync(out.cwd), realpathSync(tmpdir()), 'no .cotalk.json above the cwd');
+    assert.deepEqual(out.cotalk, [], 'claude -p started here must not register as the lead');
   }
 });
 
 test('runTool: a missing binary names the env var that fixes it', async (t) => {
-  withEnv(t, { LTT_AGY_BIN: join(tmpdir(), 'no-such-agy.exe') });
-  await assert.rejects(runTool('agy'), /agy not found .*set LTT_AGY_BIN/);
+  withEnv(t, { COTALK_AGY_BIN: join(tmpdir(), 'no-such-agy.exe') });
+  await assert.rejects(runTool('agy'), /agy not found .*set COTALK_AGY_BIN/);
 });
 
 test('runTool: a failing tool reports its exit code and first stderr line', async (t) => {
-  withEnv(t, { LTT_AGY_BIN: FAKE, FAKE_USAGE_FAIL: '1' });
+  withEnv(t, { COTALK_AGY_BIN: FAKE, FAKE_USAGE_FAIL: '1' });
   await assert.rejects(runTool('agy'), { message: 'agy exited 3: boom' });
 });
 
 test('runTool: a hung tool is killed after the timeout', async (t) => {
-  withEnv(t, { LTT_AGY_BIN: FAKE, FAKE_USAGE_HANG: '1' });
+  withEnv(t, { COTALK_AGY_BIN: FAKE, FAKE_USAGE_HANG: '1' });
   await assert.rejects(runTool('agy', { timeoutMs: 300 }), { message: 'agy timed out after 0.3s' });
 });

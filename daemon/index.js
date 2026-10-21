@@ -29,7 +29,7 @@ if (!token) {
 }
 
 const initialSettings = await settings.readSettings().catch(() => settings.getSettingsDefaults());
-const store = openStore(join(home, 'ltt.db'));
+const store = openStore(join(home, 'cotalk.db'));
 
 const applySettings = (s) => {
   if (s?.activeMs || s?.idleMs) store.setThresholds({ activeMs: s.activeMs, idleMs: s.idleMs });
@@ -59,10 +59,10 @@ const { server } = createServer({
 
 server.on('error', (err) => {
   if (err.code !== 'EADDRINUSE') throw err;
-  console.log(`let-them-talk already running on port ${port}`);
+  console.log(`cotalk already running on port ${port}`);
   store.close();
   process.exit(0);
 });
-server.listen(port, '127.0.0.1', () => console.log(`let-them-talk ${version} listening on http://127.0.0.1:${port}`));
+server.listen(port, '127.0.0.1', () => console.log(`cotalk ${version} listening on http://127.0.0.1:${port}`));
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
