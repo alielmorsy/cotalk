@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
-import { execSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 
 const home = process.env.COTALK_HOME || join(homedir(), '.cotalk');
 const port = process.env.COTALK_PORT || '7878';
@@ -46,7 +46,8 @@ async function main() {
   if (process.env.CLAUDECODE === '1') {
     try {
       const cmd = JSON.parse(readFileSync(join(home, 'config.json'), 'utf8')).prevStatusLine?.claude;
-      if (cmd) prev = execSync(cmd, { input, timeout: 2000, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+      // spawnSync keeps stdout when the command exits without reading stdin (EPIPE on Linux, e.g. `echo`)
+      if (cmd) prev = (spawnSync(cmd, { shell: true, input, timeout: 2000, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).stdout || '').trim();
     } catch {}
   }
 
