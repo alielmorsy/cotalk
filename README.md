@@ -17,45 +17,80 @@ It is one small local server (a "daemon") plus a plugin for each tool. Nothing l
 ## Requirements
 
 - **Node.js 22.13 or newer** on your PATH (`node --version`).
-- **Git**.
 - At least one agent CLI: **Claude Code**, **Antigravity CLI (`agy`) 1.2.13+**, or **Codex CLI 0.115+**.
 - Tested on Windows 11; macOS and Linux should work.
 
 ## 1. Install (once per machine)
 
+### Automatic
+
 ```sh
-git clone <url-of-this-repo> cotalk
-cd cotalk
-npm link              # puts the `cotalk` command on your PATH (no dependencies to download)
-cotalk start             # starts the local daemon on 127.0.0.1:7878 and prints the dashboard link
+npx cotalk@latest setup
 ```
 
-Open the printed `http://127.0.0.1:7878/?token=…` link once. It signs your browser in, and from then on `http://127.0.0.1:7878/` works on its own, so bookmark that. `cotalk dashboard` prints the link again.
+That one command:
 
-Then connect the tools you use. You only need the sections for your tools.
+1. installs `cotalk` globally (`npm install -g cotalk`), so the `cotalk` command is on your PATH,
+2. starts the local daemon on `127.0.0.1:7878`,
+3. finds `claude`, `agy` and `codex` on your PATH and connects each one it finds:
+   - **Claude Code:** adds the `cotalk` plugin marketplace and installs the plugin (`cotalk@cotalk`),
+   - **agy:** installs the plugin and registers the MCP server with its allow-rule (`cotalk agy-mcp`),
+   - **Codex:** adds the MCP server to `~/.codex/config.toml` (`cotalk codex-mcp`),
+4. prints one line per tool (`ok`, `skipped (not found)` or `failed: …`) and the dashboard link.
+
+Options:
+
+```sh
+cotalk setup --dry-run              # print what it would do, change nothing
+cotalk setup --only claude,agy      # only these tools
+cotalk setup --statusline           # also install the status line (see below)
+```
+
+Running it again is safe: steps already done are reported as `ok`. Restart your tools afterwards.
+
+Then check everything:
+
+```sh
+cotalk doctor
+```
+
+`doctor` changes nothing. It checks Node, that `cotalk` on PATH is this install, the daemon and its token, the dashboard build, each tool's plugin or MCP entry (including a stale token after the daemon was reset), and this folder's `.cotalk.json`. Every `✖` comes with the command that fixes it, usually `cotalk setup`. `cotalk doctor --json` prints the same as JSON.
+
+Open the dashboard link `setup` printed once. It signs your browser in, and from then on `http://127.0.0.1:7878/` works on its own, so bookmark that. `cotalk dashboard` prints the link again.
+
+### Manual
+
+Do this if you want to see or control each step. Install the command first:
+
+```sh
+npm install -g cotalk     # or, from a clone of this repo: npm install && npm link
+cotalk start              # starts the daemon and prints the dashboard link
+```
+
+Then connect the tools you use. You only need the sections for your tools. `<cotalk folder>` is where cotalk is installed: `npm root -g` plus `/cotalk`, or your clone.
 
 **Claude Code.** Inside any Claude session:
 
 ```
-/plugin marketplace add <full path to cotalk>
+/plugin marketplace add <cotalk folder>
 /plugin install cotalk@cotalk
 ```
 
-Use forward slashes on Windows, e.g. `/plugin marketplace add C:/src/cotalk`. To try it without installing, start Claude with `claude --plugin-dir <full path to cotalk>`. Claude gets the token automatically.
+Use forward slashes on Windows, e.g. `/plugin marketplace add C:/src/cotalk`. To try it without installing, start Claude with `claude --plugin-dir <cotalk folder>`. Claude gets the token automatically.
 
-*Updating:* Claude copies the plugin into `~/.claude/plugins/cache/`, keyed by the `version` in the manifests. After changing hooks or skills in this repo, bump the version (all six manifests), then run `/plugin marketplace update cotalk`, reinstall (`/plugin uninstall cotalk@cotalk`, then `/plugin install …`) and restart Claude. The `cotalk` command itself runs straight from the repo (`npm link`), so CLI fixes need no update.
+*Updating:* Claude copies the plugin into `~/.claude/plugins/cache/`, keyed by the `version` in the manifests. After an update, run `/plugin marketplace update cotalk`, reinstall (`/plugin uninstall cotalk@cotalk`, then `/plugin install cotalk@cotalk`) and restart Claude.
 
 **Antigravity (`agy`).** In a terminal:
 
 ```sh
-agy plugin install <full path to cotalk>   # skills + hooks (not `agy plugin link`: that is for marketplaces)
-cotalk agy-mcp --dry-run                             # preview
-cotalk agy-mcp                                       # `agy mcp add`, plus the allow-rule mcp(cotalk/*) in agy's settings.json (backup kept)
+agy plugin install <cotalk folder>   # skills + hooks (not `agy plugin link`: that is for marketplaces)
+cotalk agy-mcp --dry-run             # preview
+cotalk agy-mcp                       # `agy mcp add`, plus the allow-rule mcp(cotalk/*) in agy's settings.json (backup kept)
 ```
 
 Restart agy afterwards, then check with `agy mcp list`.
 
-- `agy plugin install` **copies** the folder into `~/.gemini/config/plugins/cotalk`. After you update this repo, run it again to refresh the copy.
+- `agy plugin install` **copies** the folder into `~/.gemini/config/plugins/cotalk`. After you update cotalk, run it again to refresh the copy.
 - The plugin does not carry the MCP server (agy reports `mcpServers: skipped`), so `cotalk agy-mcp` is a separate, required step. Workers refuse to start without it.
 
 **Codex.** In a terminal:
@@ -68,7 +103,19 @@ cotalk codex-mcp --hooks        # optional: also enables Codex's experimental ho
 
 Restart Codex afterwards.
 
-**Status line (optional).** It shows `[api@shop] 📬2 ⏳1`: this session's name and workspace, unread items, and requests waiting on you. It edits your tool's settings and keeps a backup (`settings.json.cotalk-bak`, made once):
+Finish with `cotalk doctor`.
+
+### Updating
+
+```sh
+npx cotalk@latest setup     # installs the new version globally and refreshes every plugin
+```
+
+Then restart your tools. For Claude, if the old plugin is still loaded, reinstall it as described under *Updating* above.
+
+### Status line (optional)
+
+It shows `[api@shop] 📬2 ⏳1`: this session's name and workspace, unread items, and requests waiting on you. It edits your tool's settings and keeps a backup (`settings.json.cotalk-bak`, made once):
 
 ```sh
 cotalk statusline claude     # ~/.claude/settings.json; chains a status line you already had
@@ -79,7 +126,7 @@ Restart the tool afterwards. The script is copied to `~/.cotalk/cotalk-statuslin
 
 **It shows nothing when the session has no identity**, and that is normal. That means no `.cotalk.json` in the folder or any parent, or a roster folder where the session was started without a role (plain `claude` instead of `cotalk run <role> -- claude`). With an identity you see `[name@workspace] ⚫ offline` if the daemon is down, and the counts otherwise.
 
-agy cannot run a command whose path has spaces (it splits on spaces and ignores quotes). If your home folder has one (`C:\Users\Ali Elmorsy`), `cotalk statusline agy` writes the Windows short path (`C:/Users/ALIELM~1/...`) instead. On a path without a short name it stops and asks you to set `COTALK_HOME` to a path without spaces.
+agy cannot run a command whose path has spaces (it splits on spaces and ignores quotes). If your home folder has one (`C:\Users\Jane Doe`), `cotalk statusline agy` writes the Windows short path (`C:/Users/JANEDO~1/...`) instead. On a path without a short name it stops and asks you to set `COTALK_HOME` to a path without spaces.
 
 ## 2. Quick start A: sessions in separate folders
 
@@ -136,7 +183,7 @@ In a folder with a roster, **every session needs a role**. A plain `claude` or `
 
 ### Step by step: Claude leads, agy does the small tasks
 
-Once per machine (section 1): `npm link`, the Claude plugin, `agy plugin install <path>`, `cotalk agy-mcp`, then restart agy. `agy mcp list` must show `cotalk`, and `~/.gemini/antigravity-cli/settings.json` must have `mcp(cotalk/*)` under `permissions.allow` (`cotalk agy-mcp` adds it; without it a headless agy cannot call any `cotalk_*` tool).
+Once per machine (section 1): `npx cotalk@latest setup`, then restart agy and Claude. `cotalk doctor` must show no `✖`. `agy mcp list` must show `cotalk`, and `~/.gemini/antigravity-cli/settings.json` must have `mcp(cotalk/*)` under `permissions.allow` (`cotalk agy-mcp` adds it; without it a headless agy cannot call any `cotalk_*` tool).
 
 For each project:
 
@@ -262,7 +309,8 @@ The daemon listens on `127.0.0.1:7878` and stores everything in `~/.cotalk/cotal
 
 | Problem | Fix |
 |---|---|
-| `cotalk: command not found` | Run `npm link` in the repo, or use `node <repo>/bin/cotalk.js …`. |
+| `cotalk: command not found` | Run `npm install -g cotalk` (or `npx cotalk@latest setup`). From a clone: `npm link`. |
+| Anything else looks wrong | Run `cotalk doctor`; each `✖` line prints its fix. |
 | Daemon won't start | Read `~/.cotalk/daemon.log`. If port 7878 is taken, set `COTALK_PORT` (for every tool), then rerun `cotalk agy-mcp` / `cotalk codex-mcp`. |
 | `401 unauthorized` in agy or Codex | The token changed (e.g. you deleted `~/.cotalk`). Rerun `cotalk agy-mcp` / `cotalk codex-mcp` and restart the tool. Claude picks up the new token by itself. |
 | No `cotalk_*` tools in agy or Codex | Restart the tool after `cotalk agy-mcp` / `cotalk codex-mcp`. Check `agy mcp list` or `~/.codex/config.toml`. |
@@ -322,7 +370,7 @@ Stored under `settings` in `~/.cotalk/config.json` (other keys in that file are 
 cotalk stop
 agy mcp remove cotalk              # if you ran cotalk agy-mcp
 agy plugin uninstall cotalk        # if you installed the agy plugin
-npm unlink -g cotalk
+npm uninstall -g cotalk                 # or `npm unlink -g cotalk` for a clone
 ```
 
 - **Claude:** `/plugin uninstall cotalk@cotalk`.
@@ -348,8 +396,14 @@ npm unlink -g cotalk
 ## Development
 
 ```sh
+git clone <this repo> cotalk && cd cotalk
+npm install          # dev tools only (Vite); cotalk has no runtime dependencies
+npm link             # `cotalk` on PATH runs this clone
 npm test
 ```
+
+- **Dashboard:** the source is in `dashboard/` (plain ES modules + CSS). `npm run build` bundles it with Vite into `daemon/public/`, which the daemon serves. The build is committed, because plugins install from the folder without a build step; CI fails if it is out of date. `npm run dev` serves the source with live reload on `http://127.0.0.1:5173/` and proxies API calls to the daemon on 7878 (open the daemon's sign-in link once first).
+- **Release:** bump `version` in `package.json` and the plugin manifests (`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json`, `plugin.json`, `gemini-extension.json`; a test checks they agree), commit, then `git tag v<version> && git push --tags`. The *Publish to npm* workflow (`.github/workflows/publish.yml`) builds, tests and runs `npm publish`. It needs a repository secret `NPM_TOKEN`: an npm *granular access token* with read and write access. Before the first release the package does not exist yet, so give that token access to all packages; afterwards you can narrow it to `cotalk`.
 
 Environment variables:
 

@@ -20,6 +20,7 @@ test('manifests agree on name and version', () => {
   const m = json('.claude-plugin/marketplace.json');
   for (const x of [c, a, g]) assert.equal(x.name, 'cotalk');
   assert.equal(c.version, a.version); assert.equal(a.version, g.version);
+  assert.equal(json('package.json').version, c.version, 'package.json matches the plugin manifests');
   assert.equal(m.plugins[0].name, 'cotalk');
   assert.equal(m.plugins[0].source, './');
   assert.equal(g.contextFileName, 'GEMINI.md');

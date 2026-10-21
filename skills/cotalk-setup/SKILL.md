@@ -5,7 +5,7 @@ description: Use when the user wants this session to join cotalk, or when a sess
 
 # Set up cotalk
 
-1. Run `cotalk start`. If `cotalk` is not on PATH, use the fallback command in `using-cotalk/references/`.
+1. Run `cotalk doctor`. If `cotalk` is not on PATH, use the fallback command in `using-cotalk/references/`. If it shows `✖` lines for the daemon or a tool, ask the user, then run `cotalk setup` (it installs the plugins and MCP entries for every tool it finds; `--dry-run` previews) and run `cotalk doctor` again.
 2. Ask the user for:
    - the workspace name (shared by all sessions of the project),
    - this session's agent name,

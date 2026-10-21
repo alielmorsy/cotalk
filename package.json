@@ -1,20 +1,46 @@
 {
   "name": "cotalk",
   "version": "0.1.5",
-  "description": "Let Claude Code and Antigravity sessions share a board, ask each other questions, and hand off tasks.",
+  "description": "Let Claude Code, Antigravity and Codex sessions on one machine share a board, ask each other questions, and hand off tasks.",
+  "keywords": [
+    "multi-agent",
+    "coordination",
+    "mcp",
+    "claude-code",
+    "codex",
+    "antigravity"
+  ],
+  "author": "Ali Elmorsy",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "cotalk": "bin/cotalk.js"
   },
+  "files": [
+    "bin/",
+    "daemon/",
+    "lib/",
+    "hooks/",
+    "skills/",
+    "statusline/",
+    ".claude-plugin/",
+    ".codex-plugin/",
+    ".agents/",
+    ".mcp.json",
+    "hooks.json",
+    "plugin.json",
+    "gemini-extension.json",
+    "GEMINI.md"
+  ],
   "engines": {
     "node": ">=22.13"
   },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node --disable-warning=ExperimentalWarning --import ./test/clean-env.js --test test/*.test.js"
+    "test": "node --disable-warning=ExperimentalWarning --import ./test/clean-env.js --test test/*.test.js",
+    "prepublishOnly": "npm run build"
   },
-  "license": "MIT",
   "devDependencies": {
     "vite": "^7.3.7"
   }
