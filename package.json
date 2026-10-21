@@ -1,6 +1,6 @@
 {
   "name": "co-talk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Let Claude Code, Antigravity and Codex sessions on one machine share a board, ask each other questions, and hand off tasks.",
   "keywords": [
     "multi-agent",

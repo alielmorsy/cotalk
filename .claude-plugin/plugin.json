@@ -1,6 +1,6 @@
 {
   "name": "cotalk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Shared board, async questions and task hand-off between Claude Code and Antigravity sessions on one machine.",
   "author": { "name": "Ali Elmorsy" },
   "license": "MIT",
