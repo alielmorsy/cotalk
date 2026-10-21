@@ -12,6 +12,8 @@ const USAGE = `usage: ltt <command>
   start | stop | status | token | headers | dashboard
   usage [--fresh] [--json]
   init --workspace W --agent A [--role R] [--owns "a/**,b/**"] [--force]
+  setup [--dry-run] [--only claude,agy,codex] [--statusline]
+  doctor [--json]
   agy-mcp [--dry-run]
   codex-mcp [--dry-run]
   statusline claude|agy [--dry-run] [--settings <path>]
@@ -21,7 +23,7 @@ const USAGE = `usage: ltt <command>
   inbox | reply <id> <text...> [--reject] | ask <agent> <title...> [--body B] | task <agent> <title...> [--body B]`;
 
 // commands that live in their own module get the raw argv (they parse `--` themselves)
-const MODULES = { run: './run.js', worker: './worker.js', wait: './wait.js', inbox: './human.js', reply: './human.js', ask: './human.js', task: './human.js', 'codex-mcp': './codex.js' };
+const MODULES = { run: './run.js', worker: './worker.js', wait: './wait.js', inbox: './human.js', reply: './human.js', ask: './human.js', task: './human.js', 'codex-mcp': './codex.js', setup: './setup.js', doctor: './doctor.js' };
 
 const [cmd, ...rest] = process.argv.slice(2);
 const pos = [], flags = {};
