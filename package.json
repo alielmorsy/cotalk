@@ -3,8 +3,19 @@
   "version": "0.1.5",
   "description": "Let Claude Code and Antigravity sessions share a board, ask each other questions, and hand off tasks.",
   "type": "module",
-  "bin": { "ltt": "bin/ltt.js" },
-  "engines": { "node": ">=22.13" },
-  "scripts": { "test": "node --disable-warning=ExperimentalWarning --import ./test/clean-env.js --test test/*.test.js" },
-  "license": "MIT"
+  "bin": {
+    "ltt": "bin/ltt.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "node --disable-warning=ExperimentalWarning --import ./test/clean-env.js --test test/*.test.js"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^7.3.7"
+  }
 }
