@@ -9,6 +9,7 @@ import { startDaemon } from './helpers.js';
 
 const CLI = fileURLToPath(new URL('../bin/cotalk.js', import.meta.url));
 const FAKE_TOOL = fileURLToPath(new URL('./fixtures/fake-tool.js', import.meta.url));
+const PKG = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).name; // npm name, not the command
 const FAKE_NPM = fileURLToPath(new URL('./fixtures/fake-npm.js', import.meta.url));
 
 function tmp(t) {
@@ -138,9 +139,9 @@ test('setup under npx cache: --dry-run prints global install plan and runs nothi
 
   const r = spawnSync(process.execPath, [CLI, 'setup', '--dry-run'], { cwd: dir, encoding: 'utf8', env });
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /running under npx: installing cotalk@0\.1\.5 globally first/);
-  assert.match(r.stdout, /npm install -g cotalk@0\.1\.5/);
-  assert.match(r.stdout, /node .*\/cotalk\/bin\/cotalk\.js setup --dry-run/);
+  assert.ok(r.stdout.includes(`running under npx: installing ${PKG}@0.1.5 globally first`), r.stdout);
+  assert.ok(r.stdout.includes(`npm install -g ${PKG}@0.1.5`));
+  assert.ok(r.stdout.includes(`/${PKG}/bin/cotalk.js setup --dry-run`), r.stdout);
 
   // verify npm install was NOT executed
   if (existsSync(npmLog)) {
@@ -157,7 +158,7 @@ test('setup under npx cache: installs globally and re-runs setup from global ins
 
   const npmLog = join(dir, 'npm.log');
   const globalLib = join(dir, 'global-lib');
-  const globalCotalkBin = join(globalLib, 'cotalk', 'bin');
+  const globalCotalkBin = join(globalLib, PKG, 'bin');
   mkdirSync(globalCotalkBin, { recursive: true });
 
   const witness = join(dir, 'witness.json');
@@ -178,12 +179,12 @@ test('setup under npx cache: installs globally and re-runs setup from global ins
 
   const r = spawnSync(process.execPath, [CLI, 'setup', '--only', 'agy'], { cwd: dir, encoding: 'utf8', env });
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /running under npx: installing cotalk@0\.1\.5 globally first/);
+  assert.ok(r.stdout.includes(`running under npx: installing ${PKG}@0.1.5 globally first`), r.stdout);
 
   // verify npm install was called with correct package version
   assert.ok(existsSync(npmLog));
   const lines = readFileSync(npmLog, 'utf8').trim().split('\n').map(JSON.parse);
-  assert.ok(lines.some(args => args[0] === 'install' && args[1] === '-g' && args[2] === 'cotalk@0.1.5'));
+  assert.ok(lines.some(args => args[0] === 'install' && args[1] === '-g' && args[2] === `${PKG}@0.1.5`));
 
   // verify global cotalk.js was re-run with same args
   assert.ok(existsSync(witness));

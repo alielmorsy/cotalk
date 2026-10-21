@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -137,7 +137,7 @@ test('doctor detects token mismatch between daemon and agy/codex', async (t) => 
   assert.equal(codexCheck.fix, 'cotalk setup');
 });
 
-test('doctor suggests npm install -g cotalk when not in a dev git checkout', (t) => {
+test('doctor suggests npm install -g <package> when not in a dev git checkout', (t) => {
   const dir = tmp(t);
   const home = tmp(t);
   const nonGitRepo = tmp(t); // directory without .git
@@ -159,6 +159,6 @@ test('doctor suggests npm install -g cotalk when not in a dev git checkout', (t)
   const pathCheck = list.find(x => x.check === 'cotalk-path');
   assert.equal(pathCheck.ok, false);
   assert.equal(pathCheck.level, '✖');
-  assert.equal(pathCheck.fix, 'npm install -g cotalk');
+  assert.equal(pathCheck.fix, `npm install -g ${JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).name}`);
 });
 

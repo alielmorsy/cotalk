@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { base, ensureDaemon, readToken } from '../lib/client.js';
 
 const REPO_ROOT = (process.env.COTALK_REPO_ROOT || fileURLToPath(new URL('..', import.meta.url))).replaceAll('\\', '/').replace(/\/+$/, '');
+// the npm package name; the command is always `cotalk`
+export const PKG = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).name;
 const COTALK_CLI = fileURLToPath(new URL('./cotalk.js', import.meta.url));
 
 function getMarketplaceName(root = REPO_ROOT) {
@@ -85,19 +87,19 @@ export async function main(cmd, rawArgs) {
     try {
       const rRoot = runNpm(['root', '-g']);
       if (rRoot.status === 0 && rRoot.stdout.trim()) {
-        globalRoot = join(rRoot.stdout.trim(), 'cotalk').replaceAll('\\', '/');
+        globalRoot = join(rRoot.stdout.trim(), PKG).replaceAll('\\', '/');
       }
     } catch {}
 
     if (dry) {
-      console.log(`running under npx: installing cotalk@${version} globally first`);
-      console.log(`  npm install -g cotalk@${version}`);
+      console.log(`running under npx: installing ${PKG}@${version} globally first`);
+      console.log(`  npm install -g ${PKG}@${version}`);
       console.log(`  node ${globalRoot}/bin/cotalk.js setup${rawArgs.length ? ' ' + rawArgs.join(' ') : ''}`);
       return;
     }
 
-    console.log(`running under npx: installing cotalk@${version} globally first...`);
-    const install = runNpm(['install', '-g', `cotalk@${version}`]);
+    console.log(`running under npx: installing ${PKG}@${version} globally first...`);
+    const install = runNpm(['install', '-g', `${PKG}@${version}`]);
     if (install.status !== 0) {
       console.error(install.stderr || install.stdout || 'npm install -g failed');
       process.exitCode = install.status ?? 1;
@@ -110,7 +112,7 @@ export async function main(cmd, rawArgs) {
       process.exitCode = rRoot.status ?? 1;
       return;
     }
-    const realGlobalRoot = join(rRoot.stdout.trim(), 'cotalk').replaceAll('\\', '/');
+    const realGlobalRoot = join(rRoot.stdout.trim(), PKG).replaceAll('\\', '/');
     const globalCli = join(realGlobalRoot, 'bin', 'cotalk.js');
     const { COTALK_REPO_ROOT, ...env } = process.env; // the child must use its own root, or it re-enters this branch
     const r = spawnSync(process.execPath, [globalCli, 'setup', ...rawArgs], { stdio: 'inherit', env });

@@ -25,12 +25,12 @@ It is one small local server (a "daemon") plus a plugin for each tool. Nothing l
 ### Automatic
 
 ```sh
-npx cotalk@latest setup
+npx co-talk@latest setup
 ```
 
 That one command:
 
-1. installs `cotalk` globally (`npm install -g cotalk`), so the `cotalk` command is on your PATH,
+1. installs `cotalk` globally (`npm install -g co-talk`), so the `cotalk` command is on your PATH,
 2. starts the local daemon on `127.0.0.1:7878`,
 3. finds `claude`, `agy` and `codex` on your PATH and connects each one it finds:
    - **Claude Code:** adds the `cotalk` plugin marketplace and installs the plugin (`cotalk@cotalk`),
@@ -63,11 +63,11 @@ Open the dashboard link `setup` printed once. It signs your browser in, and from
 Do this if you want to see or control each step. Install the command first:
 
 ```sh
-npm install -g cotalk     # or, from a clone of this repo: npm install && npm link
+npm install -g co-talk     # or, from a clone of this repo: npm install && npm link
 cotalk start              # starts the daemon and prints the dashboard link
 ```
 
-Then connect the tools you use. You only need the sections for your tools. `<cotalk folder>` is where cotalk is installed: `npm root -g` plus `/cotalk`, or your clone.
+Then connect the tools you use. You only need the sections for your tools. `<cotalk folder>` is where cotalk is installed: `npm root -g` plus `/co-talk`, or your clone.
 
 **Claude Code.** Inside any Claude session:
 
@@ -108,7 +108,7 @@ Finish with `cotalk doctor`.
 ### Updating
 
 ```sh
-npx cotalk@latest setup     # installs the new version globally and refreshes every plugin
+npx co-talk@latest setup     # installs the new version globally and refreshes every plugin
 ```
 
 Then restart your tools. For Claude, if the old plugin is still loaded, reinstall it as described under *Updating* above.
@@ -183,7 +183,7 @@ In a folder with a roster, **every session needs a role**. A plain `claude` or `
 
 ### Step by step: Claude leads, agy does the small tasks
 
-Once per machine (section 1): `npx cotalk@latest setup`, then restart agy and Claude. `cotalk doctor` must show no `✖`. `agy mcp list` must show `cotalk`, and `~/.gemini/antigravity-cli/settings.json` must have `mcp(cotalk/*)` under `permissions.allow` (`cotalk agy-mcp` adds it; without it a headless agy cannot call any `cotalk_*` tool).
+Once per machine (section 1): `npx co-talk@latest setup`, then restart agy and Claude. `cotalk doctor` must show no `✖`. `agy mcp list` must show `cotalk`, and `~/.gemini/antigravity-cli/settings.json` must have `mcp(cotalk/*)` under `permissions.allow` (`cotalk agy-mcp` adds it; without it a headless agy cannot call any `cotalk_*` tool).
 
 For each project:
 
@@ -309,7 +309,7 @@ The daemon listens on `127.0.0.1:7878` and stores everything in `~/.cotalk/cotal
 
 | Problem | Fix |
 |---|---|
-| `cotalk: command not found` | Run `npm install -g cotalk` (or `npx cotalk@latest setup`). From a clone: `npm link`. |
+| `cotalk: command not found` | Run `npm install -g co-talk` (or `npx co-talk@latest setup`). From a clone: `npm link`. |
 | Anything else looks wrong | Run `cotalk doctor`; each `✖` line prints its fix. |
 | Daemon won't start | Read `~/.cotalk/daemon.log`. If port 7878 is taken, set `COTALK_PORT` (for every tool), then rerun `cotalk agy-mcp` / `cotalk codex-mcp`. |
 | `401 unauthorized` in agy or Codex | The token changed (e.g. you deleted `~/.cotalk`). Rerun `cotalk agy-mcp` / `cotalk codex-mcp` and restart the tool. Claude picks up the new token by itself. |
@@ -370,7 +370,7 @@ Stored under `settings` in `~/.cotalk/config.json` (other keys in that file are 
 cotalk stop
 agy mcp remove cotalk              # if you ran cotalk agy-mcp
 agy plugin uninstall cotalk        # if you installed the agy plugin
-npm uninstall -g cotalk                 # or `npm unlink -g cotalk` for a clone
+npm uninstall -g co-talk                 # or `npm unlink -g co-talk` for a clone
 ```
 
 - **Claude:** `/plugin uninstall cotalk@cotalk`.

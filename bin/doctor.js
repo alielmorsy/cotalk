@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import { base, isUp, readToken, api, findConfig, home } from '../lib/client.js';
-import { probeTool, runTool } from './setup.js';
+import { probeTool, runTool, PKG } from './setup.js';
 
 const REPO_ROOT = (process.env.COTALK_REPO_ROOT || fileURLToPath(new URL('..', import.meta.url))).replaceAll('\\', '/').replace(/\/+$/, '');
 
@@ -31,7 +31,7 @@ function checkCotalkResolvesToRepo(foundPath, repoRoot) {
     if (resolve(real).toLowerCase().startsWith(nRepo)) return true;
   } catch {}
   try {
-    const nm = join(dirname(foundPath), 'node_modules', 'cotalk');
+    const nm = join(dirname(foundPath), 'node_modules', PKG);
     if (existsSync(nm)) {
       const realNm = realpathSync(nm);
       if (resolve(realNm).toLowerCase().startsWith(nRepo)) return true;
@@ -61,7 +61,7 @@ export async function main(cmd, rawArgs) {
 
   // 2. cotalk on PATH resolves to this repo
   const isDev = existsSync(join(REPO_ROOT, '.git'));
-  const fixHint = isDev ? 'npm link' : 'npm install -g cotalk';
+  const fixHint = isDev ? 'npm link' : `npm install -g ${PKG}`;
   const cotalkPath = findCotalkOnPath();
   if (!cotalkPath) {
     results.push({
